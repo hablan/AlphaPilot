@@ -724,19 +724,33 @@ class AlphaPilotService:
         return {"strong": strong[:5], "watch": watch[:5], "weak": weak[:5]}
 
     def _holding_risks(self) -> list[dict]:
-        """当前持仓的逐票风险：跌破 MA20 / 接近止盈(+15%) / 接近止损(-10%)。
-        对应商业计划书 §6.4 卖出条件 S1-S5。
+        """当前所有持仓的逐票状态：跌破 MA20 / 接近止盈(+15%) / 接近止损(-10%)。
+        商业计划书 §5.2 持仓风险 + §6.4 卖出条件 S1-S5 的完整实现。
+        无警报的持仓也返回（severity=ok），让"我的持仓"卡片显示全部仓位而非只显示触发警报的。
         """
         cfg = self.trend20_settings()
         take_profit_pct = cfg.take_profit_pct
         stop_loss_pct = cfg.stop_loss_pct
-        risks = []
+        holdings = []
         for mode in ("real", "paper"):
             for code, h in self.journal.holdings(mode=mode).items():
                 if h["shares"] <= 0:
                     continue
                 bars = self.cache.get_bars(code)
                 if bars is None or len(bars) < 20:
+                    # 数据不足仍展示，但标 ok
+                    holdings.append({
+                        "code": code,
+                        "name": h["name"],
+                        "mode": mode,
+                        "shares": h["shares"],
+                        "cost_price": round(float(h["cost"]), 3),
+                        "last_price": None,
+                        "pnl_pct": None,
+                        "dist_ma20_pct": None,
+                        "alerts": [],
+                        "severity": "ok",
+                    })
                     continue
                 cost = float(h["cost"])
                 last_price = float(bars["close"].iloc[-1])
@@ -744,7 +758,7 @@ class AlphaPilotService:
                 ma20 = _ma(bars, 20)
                 dist_ma20 = (last_price / ma20 - 1) if ma20 else 0
                 alerts = []
-                severity = "info"  # info / warn / danger
+                severity = "ok"  # ok / warn / danger
                 if pnl_pct >= take_profit_pct:
                     alerts.append(f"浮盈 {pnl_pct*100:.1f}% ≥ 止盈线 {take_profit_pct*100:.0f}%")
                     severity = "warn"
@@ -758,9 +772,7 @@ class AlphaPilotService:
                     alerts.append(f"在 MA20 下方运行")
                     if severity == "info":
                         severity = "warn"
-                if not alerts:
-                    continue  # 无风险则不展示,避免噪音
-                risks.append({
+                holdings.append({
                     "code": code,
                     "name": h["name"],
                     "mode": mode,
@@ -772,10 +784,10 @@ class AlphaPilotService:
                     "alerts": alerts,
                     "severity": severity,
                 })
-        # danger 优先,再 warn
-        order = {"danger": 0, "warn": 1, "info": 2}
-        risks.sort(key=lambda r: (order.get(r["severity"], 3), r["pnl_pct"]))
-        return risks
+        # danger 优先,再 warn,最后 ok
+        order = {"danger": 0, "warn": 1, "ok": 2}
+        holdings.sort(key=lambda r: (order.get(r["severity"], 3), r["pnl_pct"] or 0))
+        return holdings
 
     def _performance_curve(self) -> dict:
         """近 30 个交易日策略的日累计收益(基于回测 trade list)。

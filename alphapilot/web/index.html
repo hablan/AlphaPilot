@@ -132,7 +132,7 @@
     .pick-row.selected { background: #dbeafe; }
     .pick-row.selected:hover { background: #bfdbfe; }
     /* 板块强度 / 持仓风险 / 策略表现 3 卡片 */
-    .sector-row, .risk-row { display: grid; grid-template-columns: 1fr 60px 70px; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 12px; }
+    .sector-row, .risk-row { display: grid; grid-template-columns: 1.4fr 1.6fr 1.6fr; align-items: center; gap: 12px; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 12px; }
     .sector-row:hover, .risk-row:hover { background: #f8fafc; }
     .sector-row:last-child, .risk-row:last-child { border-bottom: none; }
     .sector-row .name { color: #0f172a; font-weight: 600; }
@@ -140,11 +140,27 @@
     .sector-group { margin-bottom: 8px; }
     .sector-group-label { color: var(--muted); font-size: 11px; font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--line); }
     .sector-empty { padding: 12px; color: #94a3b8; font-size: 12px; text-align: center; }
-    .risk-row { grid-template-columns: 1fr 80px 1.5fr; }
+    .risk-row { grid-template-columns: 1.3fr 1.5fr 2fr; }
     .risk-row.danger { border-left: 3px solid #b91c1c; }
     .risk-row.warn { border-left: 3px solid #d97706; }
     .risk-row .alerts { color: #475569; font-size: 11px; }
     .risk-empty { padding: 12px; color: #16a34a; font-size: 12px; text-align: center; background: #f0fdf4; border-radius: 4px; }
+    /* 持仓卡片专属样式 */
+    .holdings-summary { display: flex; align-items: baseline; gap: 8px; padding: 0 0 10px 0; border-bottom: 1px solid #edf2f7; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+    .holdings-name { display: flex; flex-direction: column; gap: 2px; }
+    .holdings-name strong { font-size: 13px; color: #1e293b; }
+    .holdings-prices { display: flex; flex-direction: column; gap: 1px; font-size: 11px; }
+    .holdings-prices .pnl { font-size: 14px; }
+    .holdings-meta { display: flex; flex-direction: column; gap: 2px; font-size: 11px; }
+    .holdings-meta .subtle { font-size: 11px; }
+    .alert-line { color: #b45309; }
+    .risk-row.ok { border-left: 3px solid #94a3b8; }
+    .risk-row .pnl.neutral { color: #64748b; }
+    .badge { display: inline-block; width: 18px; text-align: center; font-weight: 700; font-size: 12px; }
+    .badge.sev-ok { color: #16a34a; }
+    .badge.sev-warn { color: #d97706; }
+    .badge.sev-danger { color: #b91c1c; }
+
     .pick-row:last-child { border-bottom: none; }
     .pick-row .pick-code { font-family: ui-monospace, monospace; color: #334155; font-weight: 600; }
     .pick-row .pick-name { color: #1e293b; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -389,8 +405,8 @@
           <div class="card risk-card" id="holding-risks-card">
             <div class="table-head">
               <div>
-                <h2>持仓风险</h2>
-                <p class="subtle">当前持仓触发止盈/止损/跌破 MA20 的标的。点击行可填入标记卡。</p>
+                <h2>我的持仓</h2>
+                <p class="subtle">所有持仓的成本/现价/盈亏，按风险等级排序。点击行可填入标记卡。</p>
               </div>
             </div>
             <div id="holding-risks-list"></div>
@@ -1222,26 +1238,46 @@
     }
 
     // 持仓风险卡片：列出跌破 MA20 / 触发止盈止损的标的
-    function renderHoldingRisks(risks) {
+    function renderHoldingRisks(holdings) {
       const container = document.getElementById('holding-risks-list');
       if (!container) return;
-      // 区分两种空状态：无持仓 vs 有持仓但无风险
-      const positionCount = (state.dashboard && state.dashboard.portfolio) ? state.dashboard.portfolio.position_count : 0;
+      const positionCount = holdings ? holdings.length : 0;
       if (positionCount === 0) {
         container.innerHTML = '<p class="risk-empty">尚无持仓记录。在右侧"操作标记"卡提交第一笔买入后，这里会自动跟踪风险。</p>';
         return;
       }
-      if (!risks || risks.length === 0) {
-        container.innerHTML = `<p class="risk-empty">✓ 当前 ${positionCount} 个持仓均无风险触发（未跌破 MA20，未触止盈/止损）</p>`;
-        return;
-      }
-      container.innerHTML = risks.map(r => `
-        <div class="risk-row ${r.severity}" data-code="${r.code}" data-name="${r.name}">
-          <span><strong>${r.name}</strong> <span class="subtle">${r.shares}股</span></span>
-          <span class="pnl ${r.pnl_pct >= 0 ? 'up' : 'down'}">${r.pnl_pct >= 0 ? '+' : ''}${(r.pnl_pct * 100).toFixed(1)}%</span>
-          <span class="alerts">${r.alerts.map(a => escapeHtml(a)).join(' · ')}</span>
+      const summary = (state.dashboard && state.dashboard.metrics && state.dashboard.metrics.portfolio_pnl && state.dashboard.metrics.portfolio_pnl.total) || {};
+      const totalPnl = summary.total_cost > 0 ? (summary.unrealized_pnl || 0) : 0;
+      const sign = totalPnl >= 0 ? '+' : '';
+      const pnlCls = totalPnl >= 0 ? 'up' : 'down';
+      const summaryLine = `<div class="holdings-summary"><span class="${pnlCls}">${sign}¥${Math.round(totalPnl).toLocaleString('zh-CN')}</span> <span class="subtle">浮盈/亏 · ${positionCount} 只</span></div>`;
+      const rows = holdings.map(r => {
+        const modeLabel = r.mode === 'real' ? '真实' : '模拟';
+        const pnl = r.pnl_pct;
+        const pnlStr = pnl == null ? '-' : `${pnl >= 0 ? '+' : ''}${(pnl * 100).toFixed(1)}%`;
+        const priceStr = r.last_price == null ? '-' : r.last_price.toFixed(2);
+        const distMa20Str = r.dist_ma20_pct == null ? '-' : `${(r.dist_ma20_pct * 100).toFixed(1)}%`;
+        const sevBadge = { ok: '✓', warn: '⚠', danger: '⛔' }[r.severity] || '';
+        const alertsHtml = r.alerts.length
+          ? r.alerts.map(a => `<span class="alert-line">${escapeHtml(a)}</span>`).join('')
+          : '<span class="subtle">正常</span>';
+        return `
+        <div class="risk-row ${r.severity}" data-code="${r.code}" data-name="${r.name}" data-mode="${r.mode}">
+          <span class="holdings-name"><strong>${r.name}</strong> <span class="subtle">${modeLabel} · ${r.shares}股</span></span>
+          <span class="holdings-prices">
+            <span class="subtle">成本 ${r.cost_price.toFixed(2)}</span>
+            <span class="subtle">现价 ${priceStr}</span>
+            <span class="pnl ${pnl == null ? 'neutral' : (pnl >= 0 ? 'up' : 'down')}">${pnlStr}</span>
+          </span>
+          <span class="holdings-meta">
+            <span class="badge sev-${r.severity}">${sevBadge}</span>
+            <span class="subtle">距MA20 ${distMa20Str}</span>
+            ${alertsHtml}
+          </span>
         </div>
-      `).join('');
+        `;
+      }).join('');
+      container.innerHTML = summaryLine + rows;
     }
 
     // 策略表现卡片：累计收益曲线 + 总收益/最大回撤
