@@ -160,6 +160,13 @@
     .badge.sev-ok { color: #16a34a; }
     .badge.sev-warn { color: #d97706; }
     .badge.sev-danger { color: #b91c1c; }
+    /* 今日交易计划 */
+    .plan-row { display: grid; grid-template-columns: 1.5fr 1fr 70px; align-items: center; gap: 12px; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 12px; }
+    .plan-row:hover { background: #f8fafc; }
+    .plan-row:last-child { border-bottom: none; }
+    .plan-action.sev-normal { background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; text-align: center; font-size: 11px; font-weight: 600; }
+    .plan-action.sev-trial { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; text-align: center; font-size: 11px; font-weight: 600; }
+    .plan-score { text-align: right; color: #475569; font-size: 11px; }
 
     .pick-row:last-child { border-bottom: none; }
     .pick-row .pick-code { font-family: ui-monospace, monospace; color: #334155; font-weight: 600; }
@@ -411,6 +418,15 @@
               </div>
             </div>
             <div id="holding-risks-list"></div>
+          </div>
+          <div class="card plan-card" id="next-session-card">
+            <div class="table-head">
+              <div>
+                <h2>今日交易计划</h2>
+                <p class="subtle" id="next-session-subtitle">下一交易日候选标的（基于 Trend20 今日信号）</p>
+              </div>
+            </div>
+            <div id="next-session-list"></div>
           </div>
         </div>
         <div class="layout">
@@ -1018,6 +1034,7 @@
       renderSectorRanking(state.dashboard.sector_ranking);
       renderHoldingRisks(state.dashboard.holding_risks);
       renderPerformanceCurve(state.dashboard.performance_curve);
+      renderNextSession(state.dashboard.next_session);
       // 首次 render 也设置 tab 数量徽章
       if (state.outputView) setOutputView(state.outputView);
     }
@@ -1225,7 +1242,7 @@
         return;
       }
       // 行点击填入 mark 表单
-      const row = e.target.closest('.sector-row, .sector-group-row, .risk-row');
+      const row = e.target.closest('.sector-row, .sector-group-row, .risk-row, .plan-row');
       if (!row) return;
       const code = row.dataset.code;
       const input = document.getElementById('mark-code');
@@ -1247,6 +1264,34 @@
     });
 
     // 板块强度卡片：强 / 观察 / 弱 三组
+    // 今日交易计划卡片：列出下一交易日候选标的
+    function renderNextSession(plan) {
+      const container = document.getElementById('next-session-list');
+      const subtitle = document.getElementById('next-session-subtitle');
+      if (!container) return;
+      if (!plan) {
+        container.innerHTML = '<p class="sector-empty">暂无下一交易日计划</p>';
+        return;
+      }
+      const { next_trade_date, days_until, candidates, candidate_count } = plan;
+      const dayWord = days_until === 0 ? '今日' : `${days_until} 天后`;
+      if (subtitle) {
+        subtitle.textContent = `${dayWord}(${next_trade_date}) 候选 ${candidate_count} 只`;
+      }
+      if (!candidates || candidates.length === 0) {
+        container.innerHTML = `<p class="sector-empty">${dayWord} 无可加入计划的候选标的（无 TRIAL/NORMAL 信号）。</p>`;
+        return;
+      }
+      const actionLabel = { NORMAL: '正常买入', TRIAL: '小仓试探' };
+      container.innerHTML = candidates.map(c => `
+        <div class="plan-row" data-code="${c.code}" data-name="${c.name}">
+          <span class="plan-name"><strong>${c.name}</strong> <span class="subtle">${c.sector || ''}</span></span>
+          <span class="plan-action sev-${c.action === 'NORMAL' ? 'normal' : 'trial'}">${actionLabel[c.action] || c.action}</span>
+          <span class="plan-score">评分 ${c.score}</span>
+        </div>
+      `).join('');
+    }
+
     function renderSectorRanking(ranking) {
       const container = document.getElementById('sector-ranking-list');
       if (!container) return;
