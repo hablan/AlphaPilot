@@ -16,6 +16,31 @@
       --blue: #2563eb;
       --amber: #a15c00;
     }
+    /* 暗色主题：通过在 html 元素加 data-theme="dark" 触发 */
+    html[data-theme="dark"] {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --line: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #34d399;
+      --red: #f87171;
+      --blue: #60a5fa;
+      --amber: #fbbf24;
+    }
+    html[data-theme="dark"] body { background: var(--bg); color: var(--text); }
+    html[data-theme="dark"] .ticker, html[data-theme="dark"] .card,
+    html[data-theme="dark"] .modal, html[data-theme="dark"] .risk-row,
+    html[data-theme="dark"] .pick-row, html[data-theme="dark"] .plan-row,
+    html[data-theme="dark"] .sector-row, html[data-theme="dark"] .sector-group-row {
+      background: var(--panel);
+      border-color: var(--line);
+      color: var(--text);
+    }
+    html[data-theme="dark"] .data-status { background: rgba(30,41,59,0.7); color: var(--text); }
+    html[data-theme="dark"] .kbselect-hint, html[data-theme="dark"] .subtle,
+    html[data-theme="dark"] .holdings-summary, html[data-theme="dark"] label,
+    html[data-theme="dark"] .ms-label, html[data-theme="dark"] .sector-group-label { color: var(--muted); }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
     .app { min-height: 100vh; display: grid; grid-template-columns: 220px 1fr; }
@@ -65,6 +90,14 @@
       font-size: 12px; transition: background .15s, transform .15s;
     }
     .ticker button:hover { background: #e0e7ff; transform: scale(1.1); }
+    /* 点击跳转目标高亮 */
+    .recently-drilled { animation: drillFlash 1.5s ease-out; }
+    @keyframes drillFlash {
+      0% { box-shadow: 0 0 0 0 rgba(29, 78, 216, 0.55); transform: scale(1.02); }
+      100% { box-shadow: 0 0 0 0 rgba(29, 78, 216, 0); transform: scale(1); }
+    }
+    /* 看板跳转中状态 */
+    nav button.recently-drilled { animation: drillFlash 1.5s ease-out; }
     .ticker.loading { opacity: 0.6; }
     .ticker.loading::after {
       content: "加载中…"; position: absolute; top: 50%; right: 38px; transform: translateY(-50%);
@@ -145,6 +178,22 @@
     .risk-row.warn { border-left: 3px solid #d97706; }
     .risk-row .alerts { color: #475569; font-size: 11px; }
     .risk-empty { padding: 12px; color: #16a34a; font-size: 12px; text-align: center; background: #f0fdf4; border-radius: 4px; }
+    /* 快捷键帮助 */
+    .kbd-help-content { padding: 8px 0; overflow-y: auto; max-height: calc(86vh - 70px); }
+    .kbd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .kbd-table td, .kbd-table th { padding: 8px 20px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+    .kbd-table .kbd-section { background: #f8fafc; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .kbd-table kbd { display: inline-block; min-width: 20px; padding: 2px 6px; margin: 0 2px; font-family: ui-monospace, monospace; font-size: 11px; color: #1e293b; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 3px; }
+    .kbd-table td:first-child { white-space: nowrap; width: 40%; }
+    /* 数据状态细节 */
+    .freshness-detail { margin: -8px 0 12px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; color: #334155; }
+    .freshness-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+    .fresh-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .fresh-tag.ok { background: #dcfce7; color: #166534; }
+    .fresh-tag.warn { background: #fef3c7; color: #92400e; }
+    .fresh-tag.danger { background: #fee2e2; color: #991b1b; }
+    .freshness-missing { color: #64748b; font-size: 11px; }
+    .freshness-missing code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
     /* 持仓卡片专属样式 */
     .holdings-summary { display: flex; align-items: baseline; gap: 8px; padding: 0 0 10px 0; border-bottom: 1px solid #edf2f7; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
     .holdings-name { display: flex; flex-direction: column; gap: 2px; }
@@ -346,6 +395,7 @@
           <span class="switch-hint">⇄ 点切换基准</span>
           <div class="benchmark-dropdown" id="dropdown-sector" hidden></div>
         </div>
+        <button class="btn-secondary btn-small" id="theme-toggle" title="切换亮/暗色主题">🌙</button>
         <button class="btn primary" id="refresh">更新</button>
       </header>
       <div class="global-toast" id="global-toast"></div>
@@ -355,6 +405,7 @@
           <span><strong>数据状态</strong> <span id="data-status-message">-</span></span>
           <span class="data-meta" id="data-status-meta">-</span>
         </div>
+        <div class="freshness-detail" id="freshness-detail" hidden></div>
         <div class="market-state-row">
           <div class="market-state-card">
             <div class="ms-item clickable" data-drill="signals" title="大盘 MA20 之上时通过；否则暂停买入信号。点击查看信号明细">
@@ -369,7 +420,7 @@
               <span class="ms-label">暂停</span>
               <span class="ms-value" id="metric-loss">-</span>
             </div>
-            <div class="ms-item clickable" data-drill="journal" title="当前持仓（真实+模拟）按最新收盘价计算的浮盈/浮亏。点击查看复盘记录">
+            <div class="ms-item clickable" data-drill="journal-holdings" title="当前持仓（真实+模拟）按最新收盘价计算的浮盈/浮亏。点击跳到'我的持仓'卡片">
               <span class="ms-label">持仓</span>
               <span class="ms-value" id="metric-pnl">-</span>
             </div>
@@ -643,6 +694,29 @@
       <footer class="risk"><strong>风险提示</strong> 本页面仅用于策略研究、规则回测和计划复盘展示，不构成任何投资建议，不提供个性化投资顾问服务，不承诺收益；一期仅做买入/卖出标记及股数记录，不连接券商、不自动下单。</footer>
     </main>
   </div>
+  <!-- 快捷键帮助弹层 -->
+  <div class="modal-backdrop" id="kbd-help-backdrop" hidden>
+    <div class="modal" id="kbd-help-modal">
+      <div class="modal-head">
+        <h2>键盘快捷键</h2>
+        <button class="modal-close" id="kbd-help-close">×</button>
+      </div>
+      <div class="kbd-help-content">
+        <table class="kbd-table">
+          <tr><th colspan="2" class="kbd-section">导航</th></tr>
+          <tr><td><kbd>g</kbd> + <kbd>d</kbd></td><td>总览</td></tr>
+          <tr><td><kbd>g</kbd> + <kbd>s</kbd></td><td>信号</td></tr>
+          <tr><td><kbd>g</kbd> + <kbd>j</kbd></td><td>复盘</td></tr>
+          <tr><td><kbd>g</kbd> + <kbd>b</kbd></td><td>回测</td></tr>
+          <tr><td><kbd>g</kbd> + <kbd>c</kbd></td><td>配置</td></tr>
+          <tr><th colspan="2" class="kbd-section">操作</th></tr>
+          <tr><td><kbd>r</kbd></td><td>手动刷新数据</td></tr>
+          <tr><td><kbd>?</kbd></td><td>显示此帮助</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>关闭弹窗</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
   <script>
     const fmtPct = value => value === null || value === undefined ? '-' : `${(value * 100).toFixed(1)}%`;
     const round4 = value => Math.round(value * 10000) / 10000;
@@ -702,8 +776,24 @@
     });
     // 5 指标卡片 → 跳转对应 tab
     function drillToView(view) {
+      // 持仓指标特殊处理：滚到当前页面"我的持仓"卡片，不切 view
+      if (view === 'journal-holdings') {
+        const card = document.getElementById('holding-risks-card');
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          card.classList.add('recently-drilled');
+          setTimeout(() => card.classList.remove('recently-drilled'), 1500);
+        }
+        return;
+      }
       const btn = document.querySelector(`nav button[data-view="${view}"]`);
-      if (btn) btn.click();
+      if (btn) {
+        btn.click();
+        // 滚动 nav 到视口 + 高亮 1.5 秒提示用户当前所在
+        btn.classList.add('recently-drilled');
+        setTimeout(() => btn.classList.remove('recently-drilled'), 1500);
+        btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
     document.querySelectorAll('.ms-item.clickable').forEach(item => {
       item.addEventListener('click', () => drillToView(item.dataset.drill));
@@ -785,6 +875,21 @@
       }
       if (key === 'g') { gPrefix = true; setTimeout(() => gPrefix = false, 1000); return; }
       if (key === 'r' && !e.shiftKey) { e.preventDefault(); refreshAndReload(); }
+      if (key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        toggleKbdHelp();
+      }
+    });
+    function toggleKbdHelp() {
+      const bd = document.getElementById('kbd-help-backdrop');
+      if (bd) bd.hidden = !bd.hidden;
+    }
+    document.getElementById('kbd-help-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleKbdHelp();
+    });
+    document.getElementById('kbd-help-backdrop')?.addEventListener('click', (e) => {
+      if (e.target.id === 'kbd-help-backdrop') toggleKbdHelp();
     });
     // real 模式警告：切到真实记账时显示警示横幅
     const markModeEl = document.getElementById('mark-mode');
@@ -871,6 +976,28 @@
     }
     // 启动时立即检查（在 loadAll 之前）
     checkBuildVersion();
+    // 暗色模式：从 localStorage 恢复
+    const savedTheme = localStorage.getItem('alphapilot-theme');
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+    document.getElementById('theme-toggle')?.addEventListener('click', () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('alphapilot-theme', 'light');
+        document.getElementById('theme-toggle').textContent = '🌙';
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('alphapilot-theme', 'dark');
+        document.getElementById('theme-toggle').textContent = '☀️';
+      }
+    });
+    // 初始化按钮文字
+    if (document.documentElement.getAttribute('data-theme') === 'dark') {
+      const btn = document.getElementById('theme-toggle');
+      if (btn) btn.textContent = '☀️';
+    }
 
     async function loadAll() {
       await loadUserWatchlist();
@@ -1241,10 +1368,25 @@
         openSectorModal(state.dashboard?.sector_ranking);
         return;
       }
-      // 行点击填入 mark 表单
+      // 行点击填入 mark 表单 / 板块行点击跳 signals tab 并预过滤
       const row = e.target.closest('.sector-row, .sector-group-row, .risk-row, .plan-row');
       if (!row) return;
       const code = row.dataset.code;
+      const sector = row.dataset.sector || '';
+      // 板块行: 跳到 signals 标签并用 sector 名搜索
+      if (row.classList.contains('sector-group-row') && sector) {
+        document.querySelector('nav button[data-view="signals"]')?.click();
+        setTimeout(() => {
+          const kwInput = document.getElementById('filter-keyword');
+          if (kwInput) {
+            kwInput.value = sector;
+            kwInput.dispatchEvent(new Event('input', { bubbles: true }));
+            kwInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          showToast(`已切到信号标签，按板块「${sector}」过滤`, 'info');
+        }, 50);
+        return;
+      }
       const input = document.getElementById('mark-code');
       if (input) {
         input.value = code;
@@ -1832,6 +1974,28 @@
       banner.className = `data-status ${status.status || ''} ff-${fundFlowStatus}${sampleCount > 0 ? ' has-sample' : ''}`;
       message.textContent = (status.message || '-') + (fundFlowStatus === 'failed' ? ' · 资金流拉取失败' : '');
       meta.textContent = `K线 ${status.latest_trade_date || '-'} · ${providerText || '-'} · ${barCountText} · ${fundFlowText}${sampleTag} ${ageText}`;
+      // 数据完整性细节：把 lag_distribution 展开成可见清单
+      const freshness = status.freshness || {};
+      const lag = freshness.lag_distribution || {};
+      const missing = freshness.missing_symbols || [];
+      const totalSymbols = Object.values(lag).reduce((a, b) => a + b, 0);
+      const detailEl = document.getElementById('freshness-detail');
+      if (detailEl && totalSymbols > 0) {
+        const parts = [
+          lag.today > 0 ? `<span class="fresh-tag ok">今日 ${lag.today}</span>` : '',
+          lag['1-3 天'] > 0 ? `<span class="fresh-tag warn">1-3 天 ${lag['1-3 天']}</span>` : '',
+          lag['4-7 天'] > 0 ? `<span class="fresh-tag danger">4-7 天 ${lag['4-7 天']}</span>` : '',
+          lag['8+ 天'] > 0 ? `<span class="fresh-tag danger">8+ 天 ${lag['8+ 天']}</span>` : '',
+          lag['无数据'] > 0 ? `<span class="fresh-tag danger">无数据 ${lag['无数据']}</span>` : '',
+        ].filter(Boolean).join(' ');
+        const missingHtml = missing.length > 0
+          ? `<div class="freshness-missing">缺失标的: ${missing.slice(0, 5).map(s => '<code>' + escapeHtml(s) + '</code>').join(' ')}${missing.length > 5 ? ' 等 ' + missing.length + ' 个' : ''}</div>`
+          : '';
+        detailEl.innerHTML = '<div class="freshness-row">' + parts + '</div>' + missingHtml;
+        detailEl.hidden = false;
+      } else if (detailEl) {
+        detailEl.hidden = true;
+      }
     }
 
     function renderSignalFilters() {
