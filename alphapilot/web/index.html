@@ -387,8 +387,9 @@
             <div class="table-head">
               <div>
                 <h2>板块强度</h2>
-                <p class="subtle">基于 19 个行业/主题 ETF 的 MA20/M60 状态：强 = 站上 + 斜率向上；弱 = 跌破 + 斜率向下。</p>
+                <p class="subtle">基于 19 个行业/主题 ETF 的 MA20/M60 状态。点击行可填入标记卡。</p>
               </div>
+              <button class="btn-secondary btn-small" id="sector-modal-open">查看全部 19 个 →</button>
             </div>
             <div id="sector-ranking-list"></div>
           </div>
@@ -1199,7 +1200,32 @@
 
     // 板块强度 / 持仓风险行点击 → 填入 mark 表单
     document.addEventListener('click', (e) => {
-      const row = e.target.closest('.sector-row, .risk-row');
+      // 板块强度弹层"查看全部"按钮
+      if (e.target.closest('#sector-modal-open')) {
+        e.stopPropagation();
+        openSectorModal(state.dashboard?.sector_ranking);
+        return;
+      }
+      // 关闭按钮
+      if (e.target.closest('#sector-modal-close')) {
+        e.stopPropagation();
+        closeSectorModal();
+        return;
+      }
+      // 点击 modal 背景关闭
+      if (e.target.id === 'sector-modal-backdrop') {
+        closeSectorModal();
+        return;
+      }
+      // "还有 N 个" 链接
+      const more = e.target.closest('.sector-more');
+      if (more) {
+        e.stopPropagation();
+        openSectorModal(state.dashboard?.sector_ranking);
+        return;
+      }
+      // 行点击填入 mark 表单
+      const row = e.target.closest('.sector-row, .sector-group-row, .risk-row');
       if (!row) return;
       const code = row.dataset.code;
       const input = document.getElementById('mark-code');
@@ -1207,6 +1233,16 @@
         input.value = code;
         input.scrollIntoView({ behavior: 'smooth', block: 'center' });
         showToast(`已填入 ${code}，可继续选股数和价格提交 mark`, 'success');
+      }
+    });
+
+    // ESC 关闭弹窗
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const backdrop = document.getElementById('sector-modal-backdrop');
+        if (backdrop && !backdrop.hidden) {
+          closeSectorModal();
+        }
       }
     });
 
@@ -1218,23 +1254,61 @@
         container.innerHTML = '<p class="sector-empty">暂无板块数据</p>';
         return;
       }
-      const groups = [
-        { key: 'strong', label: '🟢 强势（站上 MA20 + 斜率向上）', rows: ranking.strong },
-        { key: 'watch', label: '🟡 观察（震荡或刚站上）', rows: ranking.watch },
-        { key: 'weak', label: '🔴 弱势（跌破 MA20 + 斜率向下）', rows: ranking.weak },
-      ];
-      container.innerHTML = groups.filter(g => g.rows.length > 0).map(g => `
-        <div class="sector-group">
+      // 首页只显示每个分组前 3 个,完整 19 个点 "查看全部" 弹窗
+      const renderGroup = (g) => {
+        const top = g.rows.slice(0, 3);
+        const more = g.rows.length - top.length;
+        const moreHtml = more > 0 ? `<div class="sector-more" data-group="${g.key}">…还有 ${more} 个，点击查看全部 19 个 →</div>` : '';
+        return `<div class="sector-group">
           <div class="sector-group-label">${g.label} · ${g.rows.length}</div>
-          ${g.rows.map(row => `
-            <div class="sector-row" data-code="${row.symbol}" data-name="${row.name}">
+          ${top.map(row => `
+            <div class="sector-row" data-code="${row.symbol}" data-name="${row.name}" data-sector="${row.sector || ''}">
               <span class="name">${row.name} <span class="subtle">${row.sector || ''}</span></span>
               <span class="dist ${(row.dist_ma20_pct || 0) >= 0 ? 'up' : 'down'}">${row.dist_ma20_pct >= 0 ? '+' : ''}${(row.dist_ma20_pct * 100).toFixed(1)}%</span>
               <span class="change ${(row.change_pct || 0) >= 0 ? 'up' : 'down'}">${(row.change_pct * 100).toFixed(2)}%</span>
             </div>
           `).join('')}
-        </div>
-      `).join('') || '<p class="sector-empty">暂无板块数据</p>';
+          ${moreHtml}
+        </div>`;
+      };
+      const groups = [
+        { key: 'strong', label: '🟢 强势（站上 MA20 + 斜率向上）', rows: ranking.strong },
+        { key: 'watch', label: '🟡 观察（震荡或刚站上）', rows: ranking.watch },
+        { key: 'weak', label: '🔴 弱势（跌破 MA20 + 斜率向下）', rows: ranking.weak },
+      ];
+      container.innerHTML = groups.filter(g => g.rows.length > 0).map(renderGroup).join('');
+    }
+
+    // 打开板块强度弹窗,显示完整 19 个 ETF
+    function openSectorModal(ranking) {
+      const backdrop = document.getElementById('sector-modal-backdrop');
+      const list = document.getElementById('sector-modal-list');
+      if (!backdrop || !list || !ranking) return;
+      const renderGroup = (g) => {
+        if (!g.rows.length) return '';
+        return `<div class="sector-group">
+          <div class="sector-group-label">${g.label} · ${g.rows.length}</div>
+          ${g.rows.map(row => `
+            <div class="sector-group-row" data-code="${row.symbol}" data-name="${row.name}" data-sector="${row.sector || ''}">
+              <span class="name">${row.name} <span class="subtle">${row.sector || ''}</span></span>
+              <span class="dist ${(row.dist_ma20_pct || 0) >= 0 ? 'up' : 'down'}">距MA20 ${row.dist_ma20_pct >= 0 ? '+' : ''}${(row.dist_ma20_pct * 100).toFixed(1)}%</span>
+              <span class="change ${(row.change_pct || 0) >= 0 ? 'up' : 'down'}">${(row.change_pct * 100).toFixed(2)}%</span>
+            </div>
+          `).join('')}
+        </div>`;
+      };
+      const groups = [
+        { key: 'strong', label: '🟢 强势（站上 MA20 + 斜率向上）', rows: ranking.strong },
+        { key: 'watch', label: '🟡 观察（震荡或刚站上）', rows: ranking.watch },
+        { key: 'weak', label: '🔴 弱势（跌破 MA20 + 斜率向下）', rows: ranking.weak },
+      ];
+      list.innerHTML = groups.map(renderGroup).join('');
+      backdrop.hidden = false;
+    }
+
+    function closeSectorModal() {
+      const backdrop = document.getElementById('sector-modal-backdrop');
+      if (backdrop) backdrop.hidden = true;
     }
 
     // 持仓风险卡片：列出跌破 MA20 / 触发止盈止损的标的
