@@ -49,6 +49,46 @@ python3 -m alphapilot serve                     # 启动 Web UI
 [claude] fix: service.py 边界检查防止空数据崩溃
 ```
 
+## Git 工作流与回滚约定
+
+仓库 `https://github.com/hablan/AlphaPilot`（main 分支）。所有改动必须先 commit 再 push。
+
+**日常流程**（AI agent 必读）：
+```bash
+# 1. 改完代码后跑测试
+python3 -m unittest discover -s tests
+# 2. 确认无失败后，stage + commit（commit message 遵循上面的格式）
+git add -A
+git commit -m "[claude] type: 简短描述"
+# 3. 推送
+git push
+```
+
+**快速回滚锚点**：当前基线 `efa2dde`（init commit）。
+```bash
+# 改坏了想回到上次稳定状态
+git reset --hard efa2dde          # 全部还原
+# 或只还原某个文件
+git checkout efa2dde -- alphapilot/web/index.html
+# 或回滚最近一次 commit
+git revert HEAD
+```
+
+**遇到错误时**（比如页面卡 loading）：
+```bash
+# 直接看 build-id 是否变了（server 重启过）
+git log --oneline -5
+# 看本地未推送的修改
+git diff
+# 还原所有未提交的修改
+git checkout .
+```
+
+**禁止**：
+- 不要把 `.env`、`data/*.db`、API token commit 进去（已被 `.gitignore` 保护，但仍要警觉）
+- 不要 `git push --force`，会覆盖远程历史导致别人代码丢失
+- 不要用 `git commit --amend` 改已经 push 的 commit
+
 ## 任务分配
 
 在 `PROJECT_STATUS.md` 中用文件标记法：
