@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  AlphaPilot 每日 15:35（refresh 跑完 5 分钟后）增量更新所有基准 ETF
+
+  安装方法：
+    见 scripts/install_benchmarks_launchd.sh
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.alphapilot.refresh.benchmarks</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>-m</string>
+        <string>alphapilot</string>
+        <string>init-data</string>
+        <string>--provider</string>
+        <string>__PROVIDER__</string>
+        <string>--universe</string>
+        <string>__UNIVERSE__</string>
+        <string>--years</string>
+        <string>3</string>
+        <string>--incremental</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__WORKDIR__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>PYTHONPATH</key>
+        <string>__WORKDIR__</string>
+    </dict>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Weekday</key>
+            <integer>2</integer>
+            <key>Hour</key>
+            <integer>15</integer>
+            <key>Minute</key>
+            <integer>35</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>3</integer>
+            <key>Hour</key>
+            <integer>15</integer>
+            <key>Minute</key>
+            <integer>35</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>4</integer>
+            <key>Hour</key>
+            <integer>15</integer>
+            <key>Minute</key>
+            <integer>35</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>5</integer>
+            <key>Hour</key>
+            <integer>15</integer>
+            <key>Minute</key>
+            <integer>35</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>6</integer>
+            <key>Hour</key>
+            <integer>15</integer>
+            <key>Minute</key>
+            <integer>35</integer>
+        </dict>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>ThrottleInterval</key>
+    <integer>300</integer>
+
+    <key>StandardOutPath</key>
+    <string>__LOG_DIR__/refresh-benchmarks.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__LOG_DIR__/refresh-benchmarks.error.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

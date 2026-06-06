@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  AlphaPilot Web 服务 KeepAlive
+
+  安装方法：
+    bash scripts/install_serve_launchd.sh
+  卸载方法：
+    bash scripts/uninstall_serve_launchd.sh
+  查看状态：
+    launchctl list | grep alphapilot
+  查看日志：
+    tail -f ~/Library/Logs/AlphaPilot/serve.log
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.alphapilot.serve</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>-m</string>
+        <string>alphapilot</string>
+        <string>serve</string>
+        <string>--host</string>
+        <string>__HOST__</string>
+        <string>--port</string>
+        <string>__PORT__</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__WORKDIR__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>PYTHONPATH</key>
+        <string>__WORKDIR__</string>
+    </dict>
+
+    <!-- 开机自启 -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- 服务挂了自动拉起（KeepAlive 关键配置） -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+
+    <!-- 失败后 10 秒重试 -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>__LOG_DIR__/serve.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__LOG_DIR__/serve.error.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

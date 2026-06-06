@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# 测试/覆盖率
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# 用户数据 - 数据库含真实行情与持仓
+data/*.db
+data/*.sqlite
+data/*.sqlite-journal
+data/*.sqlite-wal
+data/*.sqlite-shm
+data/parquet/
+
+# 缓存与临时
+*.log
+logs/
+*.pid
+
+# 环境配置
+.env
+.env.local
+*.local

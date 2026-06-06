@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  AlphaPilot 每日收盘后增量更新
+
+  安装方法：
+    bash scripts/install_launchd.sh
+  卸载方法：
+    bash scripts/uninstall_launchd.sh
+  查看日志：
+    tail -f ~/Library/Logs/AlphaPilot/refresh.log
+    tail -f ~/Library/Logs/AlphaPilot/refresh.error.log
+  手动触发：
+    launchctl start com.alphapilot.refresh
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.alphapilot.refresh</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>-m</string>
+        <string>alphapilot</string>
+        <string>refresh</string>
+        <string>--provider</string>
+        <string>__PROVIDER__</string>
+        <string>--universe</string>
+        <string>__UNIVERSE__</string>
+        <string>--include-fund-flow</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__WORKDIR__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>PYTHONPATH</key>
+        <string>__WORKDIR__</string>
+    </dict>
+
+    <!-- 每个交易日 15:30（收盘后 30 分钟）触发 -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Weekday</key>
+            <integer>2</integer>
+            <key>Hour</key>
+            <integer>15</integer>
+            <key>Minute</key>
+            <integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>3</integer>
+            <key>Hour</key>
+            <integer>15</integer>
+            <key>Minute</key>
+            <integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>4</integer>
+            <key>Hour</key>
+            <integer>15</integer>
+            <key>Minute</key>
+            <integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>5</integer>
+            <key>Hour</key>
+            <integer>15</integer>
+            <key>Minute</key>
+            <integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>6</integer>
+            <key>Hour</key>
+            <integer>15</integer>
+            <key>Minute</key>
+            <integer>30</integer>
+        </dict>
+    </array>
+
+    <!-- 节假日不漏：日历事件没触发时（如 10 月 1 日-7 日），手动 run-it -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- 失败后 5 分钟重试，最多 3 次 -->
+    <key>ThrottleInterval</key>
+    <integer>300</integer>
+
+    <key>StandardOutPath</key>
+    <string>__LOG_DIR__/refresh.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__LOG_DIR__/refresh.error.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
