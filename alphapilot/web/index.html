@@ -517,7 +517,7 @@
                 <span class="subtle" id="mark-code-hint">载入全市场候选中...</span>
               </div>
               <div class="field"><label>股数</label><input id="mark-shares" type="number" value="1000" min="1" /></div>
-              <div class="field"><label>价格</label><input id="mark-price" type="number" step="0.001" placeholder="默认取最新收盘价" /></div>
+              <div class="field"><label>价格</label><div style="display:flex;gap:6px;align-items:center;"><input id="mark-price" type="number" step="0.001" placeholder="默认取最新收盘价" style="flex:1;" /><button type="button" class="btn subtle" id="mark-price-fill" title="填入 600519 等当前代码的最新收盘价" style="padding:4px 10px;font-size:11px;">最新价</button></div><span class="subtle" id="mark-price-hint">点上方信号/持仓/板块/计划任一行可自动填入代码与价格</span></div>
               <div class="field">
                 <label>备注（可选）</label>
                 <input id="mark-note" type="text" placeholder="如：做 T / 试仓 / 加仓" maxlength="80" />
@@ -891,6 +891,23 @@
     }
     document.getElementById('mark-buy').addEventListener('click', () => markTrade('BUY'));
     document.getElementById('mark-sell').addEventListener('click', () => markTrade('SELL'));
+    // "最新价"按钮:从后端拉当前代码最新价
+    document.getElementById('mark-price-fill')?.addEventListener('click', async () => {
+      const code = document.getElementById('mark-code').value.trim();
+      if (!code) { showToast('请先输入标的代码', 'info'); return; }
+      try {
+        const resp = await fetch(`/api/quote?code=${encodeURIComponent(code)}`);
+        if (!resp.ok) throw new Error('未找到该标的行情');
+        const data = await resp.json();
+        const price = data.last_price;
+        if (price == null) { showToast('该标的无最新价', 'error'); return; }
+        document.getElementById('mark-price').value = price;
+        document.getElementById('mark-price').placeholder = `最新收盘价 ${price}`;
+        showToast(`已填入最新价 ${price}`, 'success');
+      } catch (e) {
+        showToast(e.message || '拉取最新价失败', 'error');
+      }
+    });
     // mark 表单 Enter 键提交：在任一输入框按 Enter 等同点击"标记买入"（更符合表单习惯）
     ['mark-code', 'mark-shares', 'mark-price', 'mark-note'].forEach(id => {
       const el = document.getElementById(id);
@@ -1334,7 +1351,7 @@
         } else {
           quickBtn = '<span class="subtle">-</span>';
         }
-        return `<div class="pick-row" data-code="${row.code}" data-name="${row.name}">
+        return `<div class="pick-row" data-code="${row.code}" data-name="${row.name}" data-last-price="${row.last_price ?? ''}">
           <span class="pick-code">${row.code}</span>
           <span class="pick-name">${row.name}</span>
           <span class="pick-sector">${row.sector || '-'}</span>
@@ -1345,7 +1362,7 @@
         </div>`;
       }).join('');
       list.innerHTML = head + rows;
-      // 点击行 → 填入 mark 表单代码字段
+      // 点击行 → 填入 mark 表单代码 + 价格（最新收盘价）
       list.querySelectorAll('.pick-row').forEach(row => {
         row.addEventListener('click', () => {
           const code = row.dataset.code;
@@ -1353,10 +1370,18 @@
           list.querySelectorAll('.pick-row.selected').forEach(r => r.classList.remove('selected'));
           row.classList.add('selected');
           const input = document.getElementById('mark-code');
+          const priceInput = document.getElementById('mark-price');
           if (input) {
             input.value = code;
             input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            showToast(`已填入 ${code}，可继续选股数和价格提交 mark`, 'success');
+          }
+          // 自动填入最新价
+          if (priceInput && row.dataset.lastPrice) {
+            priceInput.value = row.dataset.lastPrice;
+            priceInput.placeholder = `最新收盘价 ${row.dataset.lastPrice}`;
+            showToast(`已填入 ${code} · 价格默认最新收盘价,可手动调整`, 'success');
+          } else {
+            showToast(`已填入 ${code}`, 'success');
           }
         });
       });
@@ -1435,10 +1460,18 @@
         return;
       }
       const input = document.getElementById('mark-code');
+      const priceInput = document.getElementById('mark-price');
+      const lastPrice = target.dataset.lastPrice;
       if (input) {
         input.value = code;
         input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        showToast(`已填入 ${code}，可继续选股数和价格提交 mark`, 'success');
+      }
+      if (priceInput && lastPrice) {
+        priceInput.value = lastPrice;
+        priceInput.placeholder = `最新收盘价 ${lastPrice}`;
+        showToast(`已填入 ${code} · 价格默认最新收盘价,可手动调整`, 'success');
+      } else {
+        showToast(`已填入 ${code}`, 'success');
       }
     });
 
@@ -1473,7 +1506,7 @@
       }
       const actionLabel = { NORMAL: '正常买入', TRIAL: '小仓试探' };
       container.innerHTML = candidates.map(c => `
-        <div class="plan-row" data-code="${c.code}" data-name="${c.name}">
+        <div class="plan-row" data-code="${c.code}" data-name="${c.name}" data-last-price="${c.last_price ?? ''}">
           <span class="plan-name"><strong>${c.name}</strong> <span class="subtle">${c.sector || ''}</span></span>
           <span class="plan-action sev-${c.action === 'NORMAL' ? 'normal' : 'trial'}">${actionLabel[c.action] || c.action}</span>
           <span class="plan-score">评分 ${c.score}</span>
@@ -1496,7 +1529,7 @@
         return `<div class="sector-group">
           <div class="sector-group-label">${g.label} · ${g.rows.length}</div>
           ${top.map(row => `
-            <div class="sector-row" data-code="${row.symbol}" data-name="${row.name}" data-sector="${row.sector || ''}" title="今日涨幅：${(row.change_pct * 100).toFixed(2)}%\n距 MA20：${row.dist_ma20_pct >= 0 ? '+' : ''}${(row.dist_ma20_pct * 100).toFixed(1)}%\n强弱分组主要看 MA20 与斜率，今日涨幅仅供参考">
+            <div class="sector-row" data-code="${row.symbol}" data-name="${row.name}" data-sector="${row.sector || ''}" data-last-price="${row.value ?? ''}" title="今日涨幅：${(row.change_pct * 100).toFixed(2)}%\n距 MA20：${row.dist_ma20_pct >= 0 ? '+' : ''}${(row.dist_ma20_pct * 100).toFixed(1)}%\n强弱分组主要看 MA20 与斜率，今日涨幅仅供参考">
               <span class="name">${row.name} <span class="subtle">${row.sector || ''}</span></span>
               <span class="dist ${(row.dist_ma20_pct || 0) >= 0 ? 'up' : 'down'}">${row.dist_ma20_pct >= 0 ? '+' : ''}${(row.dist_ma20_pct * 100).toFixed(1)}%</span>
               <span class="change ${(row.change_pct || 0) >= 0 ? 'up' : 'down'}">${(row.change_pct * 100).toFixed(2)}%</span>
@@ -1534,7 +1567,7 @@
         return `<div class="sector-group">
           <div class="sector-group-label">${g.label} · ${g.rows.length}</div>
           ${g.rows.map(row => `
-            <div class="sector-group-row" data-code="${row.symbol}" data-name="${row.name}" data-sector="${row.sector || ''}">
+            <div class="sector-group-row" data-code="${row.symbol}" data-name="${row.name}" data-sector="${row.sector || ''}" data-last-price="${row.value ?? ''}">
               <span class="name">${row.name} <span class="subtle">${row.sector || ''}</span></span>
               <span class="dist ${(row.dist_ma20_pct || 0) >= 0 ? 'up' : 'down'}">距MA20 ${row.dist_ma20_pct >= 0 ? '+' : ''}${(row.dist_ma20_pct * 100).toFixed(1)}%</span>
               <span class="change ${(row.change_pct || 0) >= 0 ? 'up' : 'down'}">${(row.change_pct * 100).toFixed(2)}%</span>
@@ -1577,11 +1610,16 @@
         const priceStr = r.last_price == null ? '-' : r.last_price.toFixed(2);
         const distMa20Str = r.dist_ma20_pct == null ? '-' : `${(r.dist_ma20_pct * 100).toFixed(1)}%`;
         const sevBadge = { ok: '✓', warn: '⚠', danger: '⛔' }[r.severity] || '';
+        // 仓位占比和成本市值（普通投资者更关心"我这只买了多少钱"）
+        const costValue = r.cost_value || 0;
+        const sharePct = r.position_share_pct || 0;
+        const costValueStr = `¥${Math.round(costValue).toLocaleString('zh-CN')}`;
+        const shareStr = `${(sharePct * 100).toFixed(1)}%`;
         const alertsHtml = r.alerts.length
           ? r.alerts.map(a => `<span class="alert-line">${escapeHtml(a)}</span>`).join('')
           : '<span class="subtle">正常</span>';
         return `
-        <div class="risk-row ${r.severity}" data-code="${r.code}" data-name="${r.name}" data-mode="${r.mode}">
+        <div class="risk-row ${r.severity}" data-code="${r.code}" data-name="${r.name}" data-mode="${r.mode}" data-last-price="${r.last_price ?? ''}">
           <span class="holdings-name"><strong>${r.name}</strong> <span class="subtle">${modeLabel} · ${r.shares}股</span></span>
           <span class="holdings-prices">
             <span class="subtle">成本 ${r.cost_price.toFixed(2)}</span>
@@ -1590,6 +1628,7 @@
           </span>
           <span class="holdings-meta">
             <span class="badge sev-${r.severity}">${sevBadge}</span>
+            <span class="subtle">仓位 ${costValueStr} · ${shareStr}</span>
             <span class="subtle">距MA20 ${distMa20Str}</span>
             ${alertsHtml}
           </span>
@@ -2024,12 +2063,13 @@
       let fundFlowText = '';
       if (!fundFlow.count) {
         fundFlowStatus = 'missing';
-        fundFlowText = '资金流未缓存';
+        fundFlowText = '资金流数据缺失（仅显示价格/均线信号，不含资金流向）';
       } else {
         const ffRun = fundFlow.last_fetch || {};
         if (ffRun.status === 'FAILED' || (Number(ffRun.failure_count || 0) > 0 && Number(ffRun.success_count || 0) === 0)) {
           fundFlowStatus = 'failed';
-          fundFlowText = `资金流拉取失败（${ffRun.provider || '-'}）· 缓存 ${fundFlow.symbol_count || 0} 标的 / ${fundFlow.count || 0} 条 · 最新 ${fundFlow.latest_trade_date || '-'}`;
+          // 普通投资者易懂:今天没拉到资金流,本地有缓存,只影响最新一日
+          fundFlowText = `资金流接口今日拉取失败 · 已用本地 ${fundFlow.symbol_count || 0} 标的 / ${fundFlow.count || 0} 条缓存 · 最新 ${fundFlow.latest_trade_date || '-'}`;
         } else {
           fundFlowText = `资金流 ${fundFlow.symbol_count || 0} 标的 / ${fundFlow.count || 0} 条 · 最新 ${fundFlow.latest_trade_date || '-'}`;
         }

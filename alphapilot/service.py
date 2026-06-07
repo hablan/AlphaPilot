@@ -425,6 +425,24 @@ class AlphaPilotService:
             result[key] = cards
         return result
 
+    def quote(self, code: str) -> dict:
+        """返回单只标的最新一根 K 线的价格信息,供"标记买入"表单一键填价使用。"""
+        bars = self.cache.get_bars(code)
+        if bars is None or len(bars) == 0:
+            return {"code": code, "last_price": None, "change_pct": None, "trade_date": None, "has_data": False}
+        last = bars.iloc[-1]
+        prev = bars.iloc[-2] if len(bars) >= 2 else None
+        last_close = float(last["close"])
+        prev_close = float(prev["close"]) if prev is not None else last_close
+        change_pct = (last_close / prev_close - 1) if prev_close > 0 else 0.0
+        return {
+            "code": code,
+            "last_price": round(last_close, 3),
+            "change_pct": round(change_pct, 4),
+            "trade_date": str(last.get("date", "")),
+            "has_data": True,
+        }
+
     def signals(
         self,
         as_of: Optional[str] = None,
@@ -793,6 +811,15 @@ class AlphaPilotService:
         # danger 优先,再 warn,最后 ok
         order = {"danger": 0, "warn": 1, "ok": 2}
         holdings.sort(key=lambda r: (order.get(r["severity"], 3), r["pnl_pct"] or 0))
+        # 计算每只持仓的"成本市值"和"占总仓位比例",便于前端展示
+        total_cost = sum(
+            (h.get("cost_price") or 0) * h.get("shares", 0)
+            for h in holdings
+        ) or 1
+        for h in holdings:
+            cost_value = (h.get("cost_price") or 0) * h.get("shares", 0)
+            h["cost_value"] = round(cost_value, 2)
+            h["position_share_pct"] = round(cost_value / total_cost, 4) if total_cost > 0 else 0
         return holdings
 
     def _performance_curve(self) -> dict:
@@ -1045,15 +1072,21 @@ class AlphaPilotService:
         today = date.today()
         next_td = next_trade_day(today)
         signals = self.signals()
-        candidates = [
-            {
+        candidates = []
+        for s in signals:
+            if s["action"] not in ("NORMAL", "TRIAL"):
+                continue
+            # 取最新收盘价,前端点击时可一键填入 mark 表单
+            bars = self.cache.get_bars(s["code"])
+            last_price = float(bars["close"].iloc[-1]) if bars is not None and len(bars) > 0 else None
+            candidates.append({
                 "code": s["code"], "name": s["name"],
                 "action": s["action"], "score": s["score"],
                 "sector": s.get("sector"),
-            }
-            for s in signals
-            if s["action"] in ("NORMAL", "TRIAL")
-        ][:10]
+                "last_price": round(last_price, 3) if last_price else None,
+            })
+            if len(candidates) >= 10:
+                break
         return {
             "next_trade_date": next_td.isoformat(),
             "days_until": (next_td - today).days,

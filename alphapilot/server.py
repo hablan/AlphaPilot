@@ -102,6 +102,14 @@ class AlphaPilotHandler(BaseHTTPRequestHandler):
                 )
             )
             return
+        if parsed.path == "/api/quote":
+            query = parse_qs(parsed.query)
+            code = (query.get("code") or [None])[0]
+            if not code:
+                self._send_json({"error": "missing code"}, status=400)
+                return
+            self._send_json(self.service.quote(code))
+            return
         if parsed.path == "/api/benchmark-options":
             self._send_json(self.service.benchmark_options())
             return
