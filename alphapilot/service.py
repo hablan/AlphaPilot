@@ -43,6 +43,14 @@ class AlphaPilotService:
         self.cache = MarketDataCache(db_path)
         self.journal = JournalStore(self.cache)
         self.engine = Trend20Engine()
+        # provider 引用为可选,用于 quote() 在盘中拿到 intraday snapshot
+        # 注入方式: service.provider = provider_by_name("akshare")
+        self.provider = None  # type: ignore[assignment]
+
+    def set_provider(self, provider_name: str = "akshare") -> None:
+        """注入 provider,启用 quote() 的盘中实时价(2026-06-07 加)。"""
+        from alphapilot.data.providers import provider_by_name
+        self.provider = provider_by_name(provider_name)
 
     def ensure_initialized(self) -> None:
         if not self.cache.has_bars():
@@ -243,8 +251,20 @@ class AlphaPilotService:
         ]
 
     def data_status(self) -> dict:
+        """数据状态总览(独立调用入口,内部复用 cache_status 读 1 次)"""
+        return self.data_status_from(cache_status=self.cache.lightweight_cache_status())
+
+    def data_status_from(self, cache_status: dict) -> dict:
+        """可注入 cache_status 快照,避免与外部调用方 race。
+
+        新增 fund_flow.status 枚举(2026-06-07):
+            - "ok"     本次 fetch 成功或有缓存可用
+            - "missing  无任何缓存(count=0 且 latest_trade_date 为空)
+            - "failed"  最近一次 fetch 全部失败(failure_count>0 && success_count==0)
+            - "stale"   缓存存在但最新日期距今 > 3 天(可能 fetch 部分成功但未更新到今天)
+        """
         self.ensure_initialized()
-        cache = self.cache.lightweight_cache_status()
+        cache = cache_status
         instruments = [*BENCHMARKS.values(), *WATCHLIST]
         provider_mix: dict[str, int] = {}
         symbol_sources = []
@@ -293,6 +313,20 @@ class AlphaPilotService:
             sym: fetch_statuses[sym] for sym in tracked_symbols if sym in fetch_statuses
         }
         freshness = _data_freshness_summary(tracked_fetch_statuses)
+
+        # 资金流状态机: ok / failed / missing / stale
+        ff_count = cache.get("fund_flow_count", 0)
+        ff_latest = cache.get("fund_flow_latest_trade_date")
+        ff_status = "ok"
+        if ff_count == 0 and not ff_latest:
+            ff_status = "missing"
+        elif (fund_flow_run.get("status") == "FAILED"
+              or (int(fund_flow_run.get("failure_count") or 0) > 0
+                  and int(fund_flow_run.get("success_count") or 0) == 0)):
+            ff_status = "failed"
+        elif ff_latest and _is_stale(ff_latest, days=3):
+            ff_status = "stale"
+
         return {
             "status": status,
             "message": message,
@@ -313,9 +347,10 @@ class AlphaPilotService:
                 "errors": errors,
             },
             "fund_flow": {
-                "count": cache.get("fund_flow_count", 0),
+                "status": ff_status,  # 枚举: ok / failed / missing / stale
+                "count": ff_count,
                 "symbol_count": cache.get("fund_flow_symbol_count", 0),
-                "latest_trade_date": cache.get("fund_flow_latest_trade_date"),
+                "latest_trade_date": ff_latest,
                 "last_fetch": {
                     "provider": fund_flow_run.get("provider"),
                     "status": fund_flow_run.get("status"),
@@ -426,7 +461,29 @@ class AlphaPilotService:
         return result
 
     def quote(self, code: str) -> dict:
-        """返回单只标的最新一根 K 线的价格信息,供"标记买入"表单一键填价使用。"""
+        """返回单只标的最新一根 K 线的价格信息,供"标记买入"表单一键填价使用。
+
+        2026-06-07 优化: 盘中(market_open=True)时,优先读 provider 的 intraday snapshot,
+        fallback 才用 daily_bars.iloc[-1]。这样 9:30-15:00 之间的最新价是最新的,
+        而不是昨日收盘。
+        """
+        # 1) 盘中实时快照(优先)
+        if self.provider is not None and self._is_market_open_now():
+            snap = self._fetch_intraday_snapshot(code)
+            if snap and snap.get("close"):
+                # 用昨日收盘算 change_pct
+                bars = self.cache.get_bars(code)
+                prev_close = float(bars["close"].iloc[-1]) if bars is not None and len(bars) > 0 else snap["close"]
+                change_pct = (snap["close"] / prev_close - 1) if prev_close > 0 else 0.0
+                return {
+                    "code": code,
+                    "last_price": round(float(snap["close"]), 3),
+                    "change_pct": round(float(change_pct), 4),
+                    "trade_date": snap.get("trade_date", date.today().isoformat()),
+                    "has_data": True,
+                    "is_intraday": True,
+                }
+        # 2) 日线最后一行(fallback)
         bars = self.cache.get_bars(code)
         if bars is None or len(bars) == 0:
             return {"code": code, "last_price": None, "change_pct": None, "trade_date": None, "has_data": False}
@@ -441,7 +498,29 @@ class AlphaPilotService:
             "change_pct": round(change_pct, 4),
             "trade_date": str(last.get("date", "")),
             "has_data": True,
+            "is_intraday": False,
         }
+
+    def _is_market_open_now(self) -> bool:
+        """盘中判定:工作日 9:30-15:00。简化版,仅作为 hint,实际精度由 bootstrap.is_market_open 决定。"""
+        from datetime import datetime, time
+        now = datetime.now()
+        if now.weekday() >= 5:
+            return False
+        return time(9, 30) <= now.time() <= time(15, 0)
+
+    def _fetch_intraday_snapshot(self, code: str) -> Optional[dict]:
+        """尝试拿 intraday snapshot。失败返回 None。"""
+        if self.provider is None:
+            return None
+        snap_fn = getattr(self.provider, "fetch_intraday_snapshot", None)
+        if snap_fn is None:
+            return None
+        try:
+            inst = get_instrument(code)
+            return snap_fn(inst)
+        except Exception:
+            return None
 
     def signals(
         self,
@@ -669,8 +748,10 @@ class AlphaPilotService:
         portfolio = self._portfolio_summary()
         # 下一交易日：基于交易日历给出
         next_session = self._next_session_plan()
+        # 同源数据：cache_status 只取一次,避免同一请求内 race(增量 refresh 在并发时会让两次读差几行)
+        cache_status = self.cache.lightweight_cache_status()
         # 数据新鲜度（watchlist + benchmarks）
-        data_status = self.data_status()
+        data_status = self.data_status_from(cache_status=cache_status)
         freshness = data_status.get("freshness", {})
         # 基准卡片（同时给前端和 metrics 复用，避免重复算）
         benchmark_cards = self.benchmark_cards()
@@ -678,7 +759,7 @@ class AlphaPilotService:
         return {
             "as_of": date.today().isoformat(),
             "benchmarks": benchmark_cards,
-            "cache": self.cache.lightweight_cache_status(),
+            "cache": cache_status,
             "data_status": data_status,
             "freshness": freshness,
             "metrics": {
@@ -1147,7 +1228,14 @@ class AlphaPilotService:
 
 
 def _group_signals_for_dashboard(signals: list[dict], user_picks: list[dict]) -> dict:
-    """按 action + 来源分组今日信号，便于在"今日规则输出"区域分块展示。"""
+    """按 action + 来源分组今日信号,便于在"今日规则输出"区域分块展示。
+
+    2026-06-07 优化: 输出精简版字段(给 dashboard 用),不再带 entry_signal / exit_signal / board
+    以及下划线开头的内部字段(_user_pick / _blocked_short)直接作为普通字段输出,
+    改为生成两个对前端友好的替代字段:
+    - is_user_pick: bool (替代 _user_pick)
+    - blocked_summary: str (替代 _blocked_short,None 时为空串)
+    """
     user_codes = {p["symbol"] for p in user_picks}
     groups: dict[str, list[dict]] = {
         "buy": [],         # NORMAL 标记买入
@@ -1164,10 +1252,29 @@ def _group_signals_for_dashboard(signals: list[dict], user_picks: list[dict]) ->
             "EXIT_ALERT": "exit_alert",
             "STOP": "stop",
         }.get(action, "skip")
-        item = dict(s)
-        item["_user_pick"] = s["code"] in user_codes
-        item["_blocked_short"] = (s.get("blocked_reasons") or [""])[0]
-        groups[group_key].append(item)
+        # 精简版: 只保留 dashboard 真正用到的字段
+        blocked = s.get("blocked_reasons") or []
+        groups[group_key].append({
+            "code": s.get("code"),
+            "name": s.get("name"),
+            "sector": s.get("sector"),
+            "score": s.get("score"),
+            "action": action,
+            "reasons": s.get("reasons") or [],
+            "blocked_reasons": blocked,
+            "blocked_summary": blocked[0] if blocked else "",
+            "reason_text": s.get("reason_text", ""),
+            "gate_state": s.get("gate_state", {}),
+            "last_price": s.get("last_price"),
+            "change_pct": s.get("change_pct"),
+            "pnl_pct": s.get("pnl_pct"),
+            "holding_shares": s.get("holding_shares", 0),
+            "cost_price": s.get("cost_price"),
+            "signal_type": s.get("signal_type"),
+            "signal_date": s.get("signal_date"),
+            "estimated_win_rate": s.get("estimated_win_rate"),
+            "is_user_pick": s.get("code") in user_codes,
+        })
     return groups
 
 
@@ -1305,6 +1412,17 @@ def _parse_errors(errors_json: Optional[str]) -> list[str]:
         return parsed if isinstance(parsed, list) else []
     except json.JSONDecodeError:
         return []
+
+
+def _is_stale(latest_trade_date: str, days: int = 3) -> bool:
+    """判断数据是否过期(> days 天没更新)。用于资金流 stale 状态判断。"""
+    if not latest_trade_date:
+        return True
+    try:
+        lag = (date.today() - date.fromisoformat(str(latest_trade_date)[:10])).days
+    except (ValueError, TypeError):
+        return True
+    return lag > days
 
 
 def _settings_from_payload(payload: dict) -> Trend20Settings:

@@ -37,10 +37,82 @@
       border-color: var(--line);
       color: var(--text);
     }
-    html[data-theme="dark"] .data-status { background: rgba(30,41,59,0.7); color: var(--text); }
+    html[data-theme="dark"] .data-status { background: rgba(30,41,59,0.7); border-color: var(--line); color: var(--text); }
     html[data-theme="dark"] .kbselect-hint, html[data-theme="dark"] .subtle,
     html[data-theme="dark"] .holdings-summary, html[data-theme="dark"] label,
     html[data-theme="dark"] .ms-label, html[data-theme="dark"] .sector-group-label { color: var(--muted); }
+    html[data-theme="dark"] .benchmark-dropdown,
+    html[data-theme="dark"] .field input,
+    html[data-theme="dark"] .field select,
+    html[data-theme="dark"] .pager input {
+      background: #111827;
+      border-color: var(--line);
+      color: var(--text);
+    }
+    html[data-theme="dark"] .benchmark-item:hover,
+    html[data-theme="dark"] .output-table tr:hover,
+    html[data-theme="dark"] tr:hover td,
+    html[data-theme="dark"] .pick-row:hover,
+    html[data-theme="dark"] .plan-row:hover,
+    html[data-theme="dark"] .sector-row:hover,
+    html[data-theme="dark"] .risk-row:hover,
+    html[data-theme="dark"] .ms-item:hover,
+    html[data-theme="dark"] .ms-item.clickable:hover {
+      background: #263449;
+    }
+    html[data-theme="dark"] .benchmark-item.active,
+    html[data-theme="dark"] tr.selected-row,
+    html[data-theme="dark"] .pick-row.selected {
+      background: #172554 !important;
+      color: #bfdbfe;
+    }
+    html[data-theme="dark"] .benchmark-item .name,
+    html[data-theme="dark"] .benchmark-item .sym,
+    html[data-theme="dark"] .output-table .code-cell,
+    html[data-theme="dark"] .output-table .num-cell,
+    html[data-theme="dark"] .output-table .reason-cell,
+    html[data-theme="dark"] .output-table .gates-cell,
+    html[data-theme="dark"] .sector-row .name,
+    html[data-theme="dark"] .holdings-name strong,
+    html[data-theme="dark"] .pick-row .pick-name,
+    html[data-theme="dark"] .pick-row .pick-code,
+    html[data-theme="dark"] .pick-row .pick-score,
+    html[data-theme="dark"] .ms-value,
+    html[data-theme="dark"] .view-head h1,
+    html[data-theme="dark"] .recommend-card .table-head h2,
+    html[data-theme="dark"] .bt-caveat-list strong,
+    html[data-theme="dark"] .switch-row span,
+    html[data-theme="dark"] .inline-check {
+      color: var(--text);
+    }
+    html[data-theme="dark"] .btn,
+    html[data-theme="dark"] .btn-secondary,
+    html[data-theme="dark"] .quick-btn,
+    html[data-theme="dark"] .ticker button {
+      background: #111827;
+      border-color: var(--line);
+      color: var(--text);
+    }
+    html[data-theme="dark"] .btn.primary { background: var(--green); border-color: var(--green); color: #052e16; }
+    html[data-theme="dark"] .data-status.PARTIAL,
+    html[data-theme="dark"] .data-status.ff-missing,
+    html[data-theme="dark"] .data-status.has-sample {
+      background: rgba(120, 53, 15, 0.24);
+      border-color: #92400e;
+      color: #fcd34d;
+    }
+    html[data-theme="dark"] .data-status.FAILED,
+    html[data-theme="dark"] .data-status.ff-failed {
+      background: rgba(127, 29, 29, 0.24);
+      border-color: #991b1b;
+      color: #fca5a5;
+    }
+    html[data-theme="dark"] .data-status.EMPTY,
+    html[data-theme="dark"] .data-status.UPDATING {
+      background: rgba(30, 64, 175, 0.24);
+      border-color: #1d4ed8;
+      color: #93c5fd;
+    }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
     .app { min-height: 100vh; display: grid; grid-template-columns: 220px 1fr; }
@@ -122,7 +194,10 @@
     .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 200; display: flex; align-items: center; justify-content: center; }
     .modal-backdrop[hidden] { display: none !important; }
     .modal { background: #fff; border-radius: 10px; padding: 20px 24px; max-width: 720px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(15,23,42,0.3); }
-    .modal h2 { margin: 0 0 12px 0; font-size: 16px; color: #0f172a; }
+    .modal h2 { margin: 0 0 12px 0; font-size: 16px; color: var(--text); }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .modal-close { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 20px; line-height: 1; padding: 2px 4px; }
+    .modal-close:hover { color: var(--text); }
     .modal .close-btn { float: right; background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; line-height: 1; }
     .btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
     .btn.loading { position: relative; color: transparent !important; }
@@ -303,6 +378,8 @@
     .data-status.ff-missing { border-color: #fde68a; background: #fffbeb; color: #92400e; }
     .data-status.has-sample { border-color: #fb923c; background: #fff7ed; color: #9a3412; }
     .data-status.EMPTY, .data-status.UPDATING { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+    .sample-tag { padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+    html[data-theme="dark"] .sample-tag { background: #334155 !important; color: #e2e8f0 !important; }
     .data-meta { color: var(--muted); text-align: right; }
     .metric { padding: 16px; }
     .metric label { color: var(--muted); font-size: 12px; }
@@ -721,39 +798,14 @@
       </div>
     </div>
   </div>
-
-
-    <!-- 板块强度全部 19 个弹层 -->
-    <div class="modal-backdrop" id="sector-modal-backdrop" hidden>
-      <div class="modal" id="sector-modal">
-        <div class="modal-head">
-          <h2>全部 19 个行业/主题 ETF</h2>
-          <button class="modal-close" id="sector-modal-close">×</button>
-        </div>
-        <div id="sector-modal-list"></div>
-      </div>
-    </div>
-  <!-- 快捷键帮助弹层 -->
-  <div class="modal-backdrop" id="kbd-help-backdrop" hidden>
-    <div class="modal" id="kbd-help-modal">
+  <!-- 板块强度全部 19 个弹层 -->
+  <div class="modal-backdrop" id="sector-modal-backdrop" hidden>
+    <div class="modal" id="sector-modal">
       <div class="modal-head">
-        <h2>键盘快捷键</h2>
-        <button class="modal-close" id="kbd-help-close">×</button>
+        <h2>全部 19 个行业/主题 ETF</h2>
+        <button class="modal-close" id="sector-modal-close">×</button>
       </div>
-      <div class="kbd-help-content">
-        <table class="kbd-table">
-          <tr><th colspan="2" class="kbd-section">导航</th></tr>
-          <tr><td><kbd>g</kbd> + <kbd>d</kbd></td><td>总览</td></tr>
-          <tr><td><kbd>g</kbd> + <kbd>s</kbd></td><td>信号</td></tr>
-          <tr><td><kbd>g</kbd> + <kbd>j</kbd></td><td>复盘</td></tr>
-          <tr><td><kbd>g</kbd> + <kbd>b</kbd></td><td>回测</td></tr>
-          <tr><td><kbd>g</kbd> + <kbd>c</kbd></td><td>配置</td></tr>
-          <tr><th colspan="2" class="kbd-section">操作</th></tr>
-          <tr><td><kbd>r</kbd></td><td>手动刷新数据</td></tr>
-          <tr><td><kbd>?</kbd></td><td>显示此帮助</td></tr>
-          <tr><td><kbd>Esc</kbd></td><td>关闭弹窗</td></tr>
-        </table>
-      </div>
+      <div id="sector-modal-list"></div>
     </div>
   </div>
   <script>
@@ -1227,7 +1279,7 @@
       const out = {};
       for (const [key, rows] of Object.entries(grouped || {})) {
         out[key] = rows.filter(row => {
-          if (view === 'user') return !!row._user_pick;
+          if (view === 'user') return !!row.is_user_pick;
           if (view === 'holding') return (row.holding_shares || 0) > 0;
           return true;
         });
@@ -1248,7 +1300,7 @@
         const all = state.dashboard.signals_grouped || {};
         const counts = {
           all: Object.values(all).reduce((s, rows) => s + rows.length, 0),
-          user: Object.values(all).reduce((s, rows) => s + rows.filter(r => r._user_pick).length, 0),
+          user: Object.values(all).reduce((s, rows) => s + rows.filter(r => r.is_user_pick).length, 0),
           holding: Object.values(all).reduce((s, rows) => s + rows.filter(r => (r.holding_shares || 0) > 0).length, 0),
         };
         document.querySelectorAll('#output-tabs .tab').forEach(btn => {
@@ -1327,7 +1379,7 @@
         const reasons = (row.reasons || []).slice(0, 3);
         const reasonHtml = reasons.length
           ? reasons.map(r => escapeHtml(r)).join('<br>')
-          : escapeHtml(row._blocked_short || row.reason_text || '—');
+          : escapeHtml(row.blocked_summary || row.reason_text || '—');
         const reasonTitle = reasons.join(' | ');
         // 快捷买入按钮（仅 buy/trial 可买入；exit_alert/stop 显示卖出）
         const canBuy = row.action === 'buy' || row.action === 'trial';
@@ -1774,8 +1826,8 @@
         // SKIP 组全部展示（不超过 50 条防失控），其它组仍限 5 条
         const displayRows = o.key === 'skip' ? rows.slice(0, 50) : rows.slice(0, 5);
         displayRows.forEach(row => {
-          const userBadge = row._user_pick ? '<span class="user-badge" title="你加的自选">★</span>' : '';
-          const reason = row._blocked_short ? `<span class="reason">${row._blocked_short}</span>` : '';
+          const userBadge = row.is_user_pick ? '<span class="user-badge" title="你加的自选">★</span>' : '';
+          const reason = row.blocked_summary ? `<span class="reason">${row.blocked_summary}</span>` : '';
           html += `<tr data-code="${row.code}" data-name="${row.name}">`;
           if (isHoldingView) {
             // 持仓 tab 列：代码/名称/持仓/现价-成本/持仓盈亏/持仓占比/评分/原因

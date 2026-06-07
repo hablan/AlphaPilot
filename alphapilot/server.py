@@ -29,6 +29,12 @@ _BUILD_ID_LOCK = threading.Lock()
 class AlphaPilotHandler(BaseHTTPRequestHandler):
     # 类级 service 作为默认值；实例级 service 可通过 set_service() 注入，便于测试和并行调用
     service: AlphaPilotService = AlphaPilotService()
+    # 2026-06-07: 注入 akshare provider,让 /api/quote 在盘中返回 intraday 实时价
+    try:
+        service.set_provider("akshare")
+    except Exception:
+        # provider 加载失败(无 akshare 库/网络问题)时 quote 仍可走 fallback 日线
+        pass
 
     def set_service(self, service: AlphaPilotService) -> None:
         self.service = service
