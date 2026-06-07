@@ -7,6 +7,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 from alphapilot.config import SERVER_HOST, SERVER_PORT
@@ -38,6 +39,32 @@ class AlphaPilotHandler(BaseHTTPRequestHandler):
 
     def set_service(self, service: AlphaPilotService) -> None:
         self.service = service
+
+    @staticmethod
+    def _compute_etag(dashboard: dict) -> str:
+        """2026-06-07: dashboard 的 ETag,基于 as_of + bar_count + market_state + sector_state。
+        任何一个变化就视为有新数据,需重发。
+        """
+        try:
+            as_of = dashboard.get("as_of", "")
+            ds = dashboard.get("data_status") or {}
+            bar_count = ds.get("bar_count", 0)
+            latest = ds.get("latest_trade_date") or ""
+            metrics = dashboard.get("metrics") or {}
+            market_state = metrics.get("market_state", "")
+            # sector_state 可能在 metrics 或 benchmarks 里
+            sector_state = metrics.get("sector_state", "")
+            if not sector_state:
+                benchmarks = dashboard.get("benchmarks") or []
+                for b in benchmarks:
+                    if b.get("key") == "sector":
+                        sector_state = b.get("state", "")
+                        break
+            payload = f"{as_of}|{bar_count}|{latest}|{market_state}|{sector_state}"
+            return hashlib.md5(payload.encode()).hexdigest()[:12]
+        except Exception:
+            # ETag 算不出时给个稳态,不影响 200 路径
+            return "fallback"
 
     def end_headers(self) -> None:
         self.send_header("access-control-allow-origin", "*")
@@ -75,7 +102,15 @@ class AlphaPilotHandler(BaseHTTPRequestHandler):
             self._send_json({"build_id": _BUILD_ID})
             return
         if parsed.path == "/api/dashboard":
-            self._send_json(self.service.dashboard())
+            # 2026-06-07: ETag 协商,数据未变就 304,真正 0 流量
+            dashboard = self.service.dashboard()
+            etag = self._compute_etag(dashboard)
+            client_etag = self.headers.get("If-None-Match", "").strip('"')
+            if client_etag and client_etag == etag:
+                # 304 响应需要 ETag header
+                self._send_json({"status": "not_modified"}, status=304, extra_headers={"etag": etag})
+                return
+            self._send_json(dashboard, extra_headers={"etag": etag})
             return
         if parsed.path == "/api/paper/equity-curve":
             self._send_json(self.service.paper_equity_curve())
@@ -208,11 +243,14 @@ class AlphaPilotHandler(BaseHTTPRequestHandler):
         import sys
         print(f"[HTTP] {self.command} {self.path}", file=sys.stderr)
 
-    def _send_json(self, payload, status: int = 200) -> None:
+    def _send_json(self, payload, status: int = 200, extra_headers: Optional[dict] = None) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("content-type", "application/json; charset=utf-8")
         self.send_header("content-length", str(len(body)))
+        if extra_headers:
+            for k, v in extra_headers.items():
+                self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 

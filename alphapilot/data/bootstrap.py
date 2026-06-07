@@ -197,12 +197,17 @@ def initialize_market_cache(
         status = "PARTIAL"
     cache.finish_fetch_run(run_id, status, success + skipped, len(failures), failures)
     market_status = "OPEN" if is_market_open() else "CLOSED"
+    # 2026-06-07: 返回 as_of + new_bar_count,前端可以不强制 reload 直接更新 banner
+    fresh_status = cache.lightweight_cache_status()
     return {
         "provider": provider.name,
         "universe": universe_name,
         "mode": "incremental" if incremental else "full",
         "start_date": start_default,
         "end_date": end,
+        "as_of": date.today().isoformat(),  # 2026-06-07 加
+        "new_bar_count": fresh_status.get("bar_count", 0),  # 2026-06-07 加
+        "new_latest_trade_date": fresh_status.get("latest_trade_date"),  # 2026-06-07 加
         "market_status": market_status,
         "success_count": success,
         "skipped_count": skipped,

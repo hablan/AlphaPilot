@@ -343,6 +343,7 @@
     .bt-caveat-list { margin: 8px 0 0 0; padding-left: 20px; color: #475569; font-size: 12px; line-height: 1.8; }
     .bt-caveat-list strong { color: #0f172a; }
     .pick-empty { padding: 16px; text-align: center; color: #94a3b8; font-size: 13px; }
+    .empty-state { text-align: center; color: #94a3b8; padding: 32px; font-size: 13px; }
     .view-head { margin-bottom: 18px; }
     .view-head h1 { margin: 0 0 4px 0; font-size: 22px; color: #0f172a; }
     .view-subtitle { color: #64748b; font-size: 13px; margin: 0; line-height: 1.6; }
@@ -387,6 +388,8 @@
     .notice { margin: 0 0 12px 0; padding: 8px 10px; border: 1px solid #bfdbfe; border-radius: 6px; background: #eff6ff; color: #1d4ed8; font-size: 12px; line-height: 1.5; }
     .mark-selection { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; margin: 0 0 12px 0; padding: 7px 9px; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 12px; }
     .mark-selection strong { color: var(--text); }
+    .mark-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .field-full { grid-column: 1 / -1; }
     .input-row { display: flex; gap: 6px; align-items: center; }
     .input-row input { flex: 1; min-width: 0; }
     .input-row .btn { height: 34px; padding: 0 10px; font-size: 11px; }
@@ -498,7 +501,16 @@
       .market-state-card { overflow-x: auto; }
       .ms-item { min-width: 72px; padding: 9px 10px; }
       .mark-card { position: static; }
+      .dashboard-main { display: contents; }
+      #top-picks-card { order: 1; }
+      #mark-card { order: 2; }
+      .priority-grid { order: 3; }
+      .market-state-row { order: 4; }
+      .analysis-grid { order: 5; }
+      #dashboard-output-card { order: 6; }
       .card { padding: 14px; }
+      .mark-form-grid { grid-template-columns: 1fr; gap: 8px; }
+      .mark-card .notice { margin-bottom: 8px; }
     }
     @media (max-width: 640px) {
       main { padding: 14px; }
@@ -509,9 +521,12 @@
       #theme-toggle { grid-column: 4; grid-row: 2; }
       #refresh { grid-column: 5; grid-row: 2; }
       .recommend-card .pick-head { display: none; }
-      .recommend-card .pick-head, .recommend-card .pick-row { grid-template-columns: 82px minmax(0, 1fr) 58px; gap: 8px; }
-      .recommend-card .pick-sector, .recommend-card .pick-reason, .recommend-card .pick-quick, .recommend-card .pick-action { display: none; }
+      .recommend-card .pick-head, .recommend-card .pick-row { grid-template-columns: 82px minmax(0, 1fr) 62px 58px; gap: 8px; }
+      .recommend-card .pick-sector, .recommend-card .pick-reason, .recommend-card .pick-quick { display: none; }
+      .recommend-card .pick-action { padding: 2px 6px; font-size: 10px; }
       .recommend-card .pick-score { font-size: 13px; }
+      .mark-selection { margin-bottom: 8px; }
+      .field label { margin-bottom: 3px; }
       #signals-table { display: none; }
       #signals-mobile-list { display: grid; gap: 10px; }
       .filterbar { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
@@ -664,15 +679,15 @@
             <h2>一期操作标记</h2>
             <p class="notice">点左侧信号、持仓、板块或计划行，会自动填入标的代码和最新价。</p>
             <div class="mark-selection" id="mark-selection"><span>尚未选择标的</span></div>
-            <div class="form">
-              <div class="field">
+            <div class="form mark-form-grid">
+              <div class="field field-full">
                 <label>标的代码或名称（输入 2 字符搜索全市场）</label>
                 <input id="mark-code" type="text" list="mark-code-list" placeholder="如 000001 或 平安银行" autocomplete="off" />
                 <datalist id="mark-code-list"></datalist>
                 <span class="subtle" id="mark-code-hint">载入全市场候选中...</span>
               </div>
               <div class="field"><label>股数</label><input id="mark-shares" type="number" value="1000" min="1" /></div>
-              <div class="field"><label>价格</label><div class="input-row"><input id="mark-price" type="number" step="0.001" placeholder="默认取最新收盘价" /><button type="button" class="btn" id="mark-price-fill" title="填入 600519 等当前代码的最新收盘价">最新价</button></div><span class="subtle" id="mark-price-hint">点左侧任一可选行可自动填入代码与价格</span></div>
+              <div class="field"><label>价格</label><div class="input-row"><input id="mark-price" type="number" step="0.001" placeholder="默认取最新收盘价" /><button type="button" class="btn" id="mark-price-fill" title="填入 600519 等当前代码的最新收盘价">最新价</button></div><span class="subtle" id="mark-price-hint">点左侧行可自动填入</span></div>
               <div class="field">
                 <label>备注（可选）</label>
                 <input id="mark-note" type="text" placeholder="如：做 T / 试仓 / 加仓" maxlength="80" />
@@ -685,7 +700,7 @@
                 </select>
                 <span class="subtle real-warning" id="mark-mode-warning" hidden>⚠ 真实记账模式：数据将进入"复盘"页生产表，无法撤销。</span>
               </div>
-              <div class="actions">
+              <div class="actions field-full">
                 <button class="btn primary" id="mark-buy">标记买入</button>
                 <button class="btn" id="mark-sell">标记卖出</button>
               </div>
@@ -1034,10 +1049,12 @@
         });
         // 拉取完成后用最新数据重画
         await loadAll();
+        // 2026-06-07: 显示新 bar_count,让用户看到"这次拉到了 N 条"
+        const barCountMsg = result?.new_bar_count ? ` · 共 ${result.new_bar_count.toLocaleString('zh-CN')} 条 K 线` : '';
         if (result && result.market_status) {
-          showToast(`增量更新完成（市场${result.market_status}）：成功 ${result.success_count} / 跳过 ${result.skipped_count} / 覆盖 ${result.refreshed_count} / 失败 ${result.failure_count}`);
+          showToast(`增量更新完成（市场${result.market_status}）：成功 ${result.success_count} / 跳过 ${result.skipped_count} / 覆盖 ${result.refreshed_count} / 失败 ${result.failure_count}${barCountMsg}`);
         } else if (result) {
-          showToast(`更新完成：成功 ${result.success_count} / 失败 ${result.failure_count}`);
+          showToast(`更新完成：成功 ${result.success_count} / 失败 ${result.failure_count}${barCountMsg}`);
         }
       } catch (e) {
         showToast('更新失败：' + e.message);
@@ -1892,7 +1909,7 @@
           holding: '当前无持仓',
           recommend: '今日暂无操作建议',
         }[state.outputView] || '今日暂无信号';
-        container.innerHTML = `<p style="text-align:center;color:#94a3b8;padding:32px">${viewHint}</p>`;
+        container.innerHTML = `<p class="empty-state">${viewHint}</p>`;
         return;
       }
 

@@ -1083,7 +1083,8 @@ class AlphaPilotService:
         算法：
         1. 取所有 paper mark，按时间正序
         2. 起始日期 = 最早一笔 paper mark 的 mark_date（若无 mark 则空）
-        3. 截止日期 = end_date 或今天
+        3. 截止日期 = end_date 或 today(2026-06-07 修:实际取 min(today, latest_trade_date),
+           避免周末/节假日买入时 K 线缺失导致 curve 为空)
         4. 对每一天：
            - 还原当日开盘时的"持仓+成本"（用截至当日的 paper mark）
            - 计算当日市值 = sum(每只持仓 shares × 当日收盘价)
@@ -1100,6 +1101,18 @@ class AlphaPilotService:
         end = end_date or date.today().isoformat()
         if first_date > end:
             return {"curve": [], "summary": {"trade_count": len(marks), "first_date": first_date, "last_date": end}}
+
+        # 2026-06-07 修: 用 sample provider 时,数据最新日期可能远早于今天(如几天前甚至更早)。
+        # 而 mark_trade() 默认 mark_date = today,导致 first_date > latest_trade_date(虽然 first_date <= end 成立)
+        # 把 first_date 也 clamp 到数据最新日期,保证 K 线覆盖了 mark 写入日。
+        # 真实环境(provider=akshare/tencent)latest_trade_date == today,clamp 是 no-op。
+        cache_status = self.cache.lightweight_cache_status()
+        latest = cache_status.get("latest_trade_date")
+        if latest:
+            if first_date > latest:
+                first_date = latest
+            if not end_date and latest < end:
+                end = latest
 
         # 收集所有涉及的代码
         codes = sorted({m["code"] for m in marks_sorted})
