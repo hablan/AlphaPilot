@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import asdict, fields
 from datetime import date, datetime
 from typing import Optional
@@ -38,6 +39,45 @@ from alphapilot.strategy.trend20 import Trend20Engine, Trend20Settings
 TREND20_SETTINGS_KEY = "trend20_settings"
 
 
+class TTLCache:
+    """轻量 TTL 缓存(2026-06-07 加,服务 dashboard / backtest / next_session 减少重复计算)。
+
+    - 单进程内存缓存(不跨进程,不持久化)
+    - 默认 5s TTL:够抵抗浏览器连发 3-5 个请求,不会让用户感觉数据陈旧
+    - 用法: `self._ttl_cache.get_or_compute("dashboard", 5, self._build_dashboard)`
+    - 显式失效: `self._ttl_cache.invalidate("dashboard")`(数据 refresh 后调用)
+    """
+
+    def __init__(self) -> None:
+        self._store: dict[str, tuple[float, object]] = {}
+
+    def get(self, key: str) -> Optional[object]:
+        if key not in self._store:
+            return None
+        expires_at, value = self._store[key]
+        if time.time() > expires_at:
+            self._store.pop(key, None)
+            return None
+        return value
+
+    def set(self, key: str, value: object, ttl_seconds: float) -> None:
+        self._store[key] = (time.time() + ttl_seconds, value)
+
+    def get_or_compute(self, key: str, ttl_seconds: float, compute_fn) -> object:
+        cached = self.get(key)
+        if cached is not None:
+            return cached
+        value = compute_fn()
+        self.set(key, value, ttl_seconds)
+        return value
+
+    def invalidate(self, key: Optional[str] = None) -> None:
+        if key is None:
+            self._store.clear()
+        else:
+            self._store.pop(key, None)
+
+
 class AlphaPilotService:
     def __init__(self, db_path=DEFAULT_DB_PATH):
         self.cache = MarketDataCache(db_path)
@@ -46,6 +86,8 @@ class AlphaPilotService:
         # provider 引用为可选,用于 quote() 在盘中拿到 intraday snapshot
         # 注入方式: service.provider = provider_by_name("akshare")
         self.provider = None  # type: ignore[assignment]
+        # 2026-06-07: dashboard / backtest / next_session 共享 TTL 缓存
+        self._ttl_cache = TTLCache()
 
     def set_provider(self, provider_name: str = "akshare") -> None:
         """注入 provider,启用 quote() 的盘中实时价(2026-06-07 加)。"""
@@ -735,6 +777,13 @@ class AlphaPilotService:
         return out
 
     def dashboard(self) -> dict:
+        # 2026-06-07: 5s TTL,首屏 5s 内的多次请求复用同一份结果
+        # 防御场景: 用户刷新页面 + dashboard 多个并行 fetch + 切 tab 反复拉取
+        return self._ttl_cache.get_or_compute(
+            "dashboard", ttl_seconds=5.0, compute_fn=self._build_dashboard
+        )
+
+    def _build_dashboard(self) -> dict:
         self.ensure_initialized()
         signals = self.signals()
         action_counts = {
@@ -766,8 +815,8 @@ class AlphaPilotService:
                 # 大盘过滤 = 大盘 state 在 {强, 过热} 视作"通过"（震荡视为勉强通过，弱为过滤）
                 "market_filter": "通过" if _is_pass_state(benchmark_cards_dict.get("market", "无数据")) else "过滤",
                 "sector_state": benchmark_cards_dict.get("sector", "无数据"),
-                "market_state": benchmark_cards_dict.get("market", "无数据"),
-                "style_state": benchmark_cards_dict.get("style", "无数据"),
+                # 2026-06-07: market_state / style_state 已废弃,前端从 benchmarks 数组取
+                # (暂时保留 sector_state 兼容老逻辑,下个版本可一起删)
                 "loss_streak": self._loss_streak(),
                 "action_counts": action_counts,
                 "portfolio_pnl": self._portfolio_pnl_summary(),
@@ -1148,7 +1197,14 @@ class AlphaPilotService:
         return bars_by_code[code][-1][1]
 
     def _next_session_plan(self) -> dict:
-        """下一交易日计划：基于交易日历和今日信号候选。"""
+        """下一交易日计划：基于交易日历和今日信号候选。
+
+        2026-06-07: 1 天 TTL(交易日历每天只算一次,信号候选当天不变)
+        """
+        cache_key = f"next_session:{date.today().isoformat()}"
+        cached = self._ttl_cache.get(cache_key)
+        if cached is not None:
+            return cached  # type: ignore[return-value]
         from alphapilot.data.calendar import next_trade_day
         today = date.today()
         next_td = next_trade_day(today)
@@ -1168,14 +1224,23 @@ class AlphaPilotService:
             })
             if len(candidates) >= 10:
                 break
-        return {
+        result = {
             "next_trade_date": next_td.isoformat(),
             "days_until": (next_td - today).days,
             "candidate_count": len(candidates),
             "candidates": candidates,
         }
+        self._ttl_cache.set(cache_key, result, ttl_seconds=86400.0)  # 1 天
+        return result
 
     def backtest(self) -> dict:
+        # 2026-06-07: backtest 446ms 起步,5 分钟 TTL 复用结果
+        # backtest 输入不依赖实时行情,半小时内不重跑
+        return self._ttl_cache.get_or_compute(
+            "backtest", ttl_seconds=300.0, compute_fn=self._run_backtest
+        )
+
+    def _run_backtest(self) -> dict:
         self.ensure_initialized()
         market = self.cache.get_bars(BENCHMARKS["market"].symbol)
         sector = self.cache.get_bars(BENCHMARKS["sector"].symbol)

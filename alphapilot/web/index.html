@@ -79,6 +79,7 @@
     html[data-theme="dark"] .pick-row .pick-score,
     html[data-theme="dark"] .ms-value,
     html[data-theme="dark"] .view-head h1,
+    html[data-theme="dark"] .signal-card-reason,
     html[data-theme="dark"] .recommend-card .table-head h2,
     html[data-theme="dark"] .bt-caveat-list strong,
     html[data-theme="dark"] .switch-row span,
@@ -112,6 +113,17 @@
       background: rgba(30, 64, 175, 0.24);
       border-color: #1d4ed8;
       color: #93c5fd;
+    }
+    html[data-theme="dark"] .notice,
+    html[data-theme="dark"] .toolbar-card {
+      background: rgba(30, 64, 175, 0.18);
+      border-color: #1d4ed8;
+      color: #bfdbfe;
+    }
+    html[data-theme="dark"] .mark-selection,
+    html[data-theme="dark"] .signal-card-metrics span {
+      background: #111827;
+      color: var(--muted);
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
@@ -362,6 +374,38 @@
     .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
     .grid-5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .dashboard-shell { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+    .dashboard-main { display: grid; gap: 16px; min-width: 0; }
+    .priority-grid, .analysis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .analysis-grid { margin-bottom: 0; }
+    .mark-card { position: sticky; top: 16px; overflow: visible; }
+    .mark-card.is-targeted { animation: markFocus 1.4s ease-out; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(37,99,235,.16), 0 12px 28px rgba(15,23,42,.08); }
+    @keyframes markFocus {
+      0% { box-shadow: 0 0 0 0 rgba(37,99,235,.36), 0 12px 28px rgba(15,23,42,.06); }
+      100% { box-shadow: 0 0 0 3px rgba(37,99,235,.16), 0 12px 28px rgba(15,23,42,.08); }
+    }
+    .notice { margin: 0 0 12px 0; padding: 8px 10px; border: 1px solid #bfdbfe; border-radius: 6px; background: #eff6ff; color: #1d4ed8; font-size: 12px; line-height: 1.5; }
+    .mark-selection { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; margin: 0 0 12px 0; padding: 7px 9px; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 12px; }
+    .mark-selection strong { color: var(--text); }
+    .input-row { display: flex; gap: 6px; align-items: center; }
+    .input-row input { flex: 1; min-width: 0; }
+    .input-row .btn { height: 34px; padding: 0 10px; font-size: 11px; }
+    .chart-box { padding: 6px 0; }
+    .toolbar-card { background: #f4f7fb; padding: 8px 12px; margin-bottom: 8px; font-size: 13px; color: #4a5568; }
+    .preset-hint { margin-top: 8px; }
+    .flush { margin: 0; }
+    .mobile-list { display: none; }
+    .signal-card { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+    .signal-card-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .signal-card-title { display: grid; gap: 2px; min-width: 0; }
+    .signal-card-title strong { color: var(--text); font-size: 14px; }
+    .signal-card-title span { color: var(--muted); font-size: 12px; }
+    .signal-card-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .signal-card-metrics span { display: grid; gap: 2px; padding: 6px; border-radius: 6px; background: #f8fafc; color: var(--muted); font-size: 11px; }
+    .signal-card-metrics strong { color: var(--text); font-size: 13px; }
+    .signal-card-reason { color: #475569; font-size: 12px; line-height: 1.5; }
+    .signal-card-actions { display: flex; gap: 8px; }
+    .signal-card-actions .btn { flex: 1; height: 30px; padding: 0 8px; }
     /* 紧凑"市场状态"行：5 个指标合并到 1 个横排卡片，腾出首屏空间 */
     .market-state-row { margin-bottom: 16px; }
     .market-state-card { display: flex; gap: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0; box-shadow: 0 12px 28px rgba(15,23,42,.06); overflow: hidden; }
@@ -412,6 +456,7 @@
     .field input, .field select { width: 100%; height: 34px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 10px; background: #fff; color: var(--text); }
     .field input[type="checkbox"] { width: 16px; height: 16px; padding: 0; }
     .filterbar { display: grid; grid-template-columns: minmax(180px, 1.4fr) repeat(5, minmax(120px, 1fr)) auto; gap: 10px; align-items: end; margin-bottom: 14px; }
+    .filterbar-secondary { grid-template-columns: 1fr auto; }
     .inline-check { height: 34px; display: flex; align-items: center; gap: 7px; color: #334155; font-size: 12px; font-weight: 700; white-space: nowrap; }
     .table-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
     #dashboard-output-card .table-head { justify-content: flex-start; gap: 16px; }
@@ -434,7 +479,45 @@
     .risk-disclaimer strong { color: #9a3412; margin-right: 6px; }
     .risk-disclaimer details { margin-top: 4px; }
     .risk-disclaimer details summary { color: #1d4ed8; cursor: pointer; font-size: 11px; user-select: none; }
-    @media (max-width: 1100px) { .app, .topbar, .grid-4, .layout, .filterbar, .config-grid { grid-template-columns: 1fr; } aside { position: static; } .data-meta, .toast { text-align: left; } .table-head, .config-actions, .pager { align-items: stretch; flex-direction: column; } }
+    @media (max-width: 1100px) {
+      .app, .grid-4, .layout, .filterbar, .config-grid, .dashboard-shell, .priority-grid, .analysis-grid { grid-template-columns: 1fr; }
+      aside { position: static; padding: 14px 18px; }
+      aside nav { display: flex; gap: 6px; margin-top: 12px; overflow-x: auto; padding-bottom: 2px; }
+      aside nav button { flex: 0 0 auto; height: 32px; padding: 0 10px; white-space: nowrap; }
+      .brand { font-size: 18px; }
+      .sub { margin-top: 3px; }
+      main { padding: 16px; }
+      .topbar { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: stretch; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }
+      .topbar .title { grid-column: 1 / 4; min-width: 0; }
+      .topbar .ticker { min-width: 150px; padding: 8px 30px 8px 10px; }
+      .topbar .btn-small { width: 28px; justify-self: start; }
+      #theme-toggle { grid-column: 2; grid-row: 2; }
+      #refresh { grid-column: 3; grid-row: 2; }
+      .data-meta, .toast { text-align: left; }
+      .table-head, .config-actions, .pager { align-items: stretch; flex-direction: column; }
+      .market-state-card { overflow-x: auto; }
+      .ms-item { min-width: 72px; padding: 9px 10px; }
+      .mark-card { position: static; }
+      .card { padding: 14px; }
+    }
+    @media (max-width: 640px) {
+      main { padding: 14px; }
+      h1 { font-size: 21px; }
+      .topbar { grid-template-columns: repeat(3, minmax(148px, 1fr)) 28px 28px; }
+      .topbar .title { grid-column: 1 / -1; }
+      .topbar .ticker { min-width: 148px; }
+      #theme-toggle { grid-column: 4; grid-row: 2; }
+      #refresh { grid-column: 5; grid-row: 2; }
+      .recommend-card .pick-head { display: none; }
+      .recommend-card .pick-head, .recommend-card .pick-row { grid-template-columns: 82px minmax(0, 1fr) 58px; gap: 8px; }
+      .recommend-card .pick-sector, .recommend-card .pick-reason, .recommend-card .pick-quick, .recommend-card .pick-action { display: none; }
+      .recommend-card .pick-score { font-size: 13px; }
+      #signals-table { display: none; }
+      #signals-mobile-list { display: grid; gap: 10px; }
+      .filterbar { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+      .filterbar .field:nth-child(n+3):not(.always-visible), .filterbar-secondary { display: none; }
+      .inline-check { height: 34px; }
+    }
   </style>
 </head>
 <body>
@@ -487,97 +570,100 @@
           <span><strong>数据状态</strong> <span id="data-status-message">-</span></span>
           <span class="data-meta" id="data-status-meta">-</span>
         </div>
-        <div class="market-state-row">
-          <div class="market-state-card">
-            <div class="ms-item clickable" data-drill="signals" title="大盘 MA20 之上时通过；否则暂停买入信号。点击查看信号明细">
-              <span class="ms-label">大盘</span>
-              <span class="ms-value" id="metric-market">-</span>
-            </div>
-            <div class="ms-item clickable" data-drill="signals" title="所选板块 MA20 走势状态：强/弱/震荡。点击查看信号明细">
-              <span class="ms-label">板块</span>
-              <span class="ms-value" id="metric-sector">-</span>
-            </div>
-            <div class="ms-item clickable" data-drill="signals" title="最近连续亏损笔数 / 阈值（来自 config.loss_streak_max），达到则暂停入场。点击查看信号明细">
-              <span class="ms-label">暂停</span>
-              <span class="ms-value" id="metric-loss">-</span>
-            </div>
-            <div class="ms-item clickable" data-drill="journal-holdings" title="当前持仓（真实+模拟）按最新收盘价计算的浮盈/浮亏。点击跳到'我的持仓'卡片">
-              <span class="ms-label">持仓</span>
-              <span class="ms-value" id="metric-pnl">-</span>
-            </div>
-            <div class="ms-item clickable" data-drill="backtest" title="策略在历史 K 线上的单标的 walk-forward 胜率。点击查看回测详情">
-              <span class="ms-label">回测胜率</span>
-              <span class="ms-value" id="metric-win">-</span>
-            </div>
-          </div>
-        </div>
-        <div class="card recommend-card" id="top-picks-card">
-          <div class="table-head">
-            <div>
-              <h2>今日需关注</h2>
-              <p class="subtle">今日信号按紧急度排序（买入 &gt; 试探 &gt; 退出提醒 &gt; 止损）。点行可填入下方"操作标记"卡；触发原因最多展示 3 条。<span class="benchmark-hint" id="top-picks-benchmark-hint"></span></p>
-            </div>
-            <span class="count" id="top-picks-count">-</span>
-          </div>
-          <div id="top-picks-list"></div>
-        </div>
-        <div class="grid-3">
-          <div class="card sector-card" id="sector-ranking-card">
-            <div class="table-head">
-              <div>
-                <h2>板块强度</h2>
-                <p class="subtle">基于 19 个行业/主题 ETF 的 MA20/M60 状态。点击行可填入标记卡。</p>
+        <div class="dashboard-shell">
+          <div class="dashboard-main">
+            <div class="card recommend-card" id="top-picks-card">
+              <div class="table-head">
+                <div>
+                  <h2>今日需关注</h2>
+                  <p class="subtle">今日信号按紧急度排序。点行会填入右侧"操作标记"，触发原因最多展示 3 条。<span class="benchmark-hint" id="top-picks-benchmark-hint"></span></p>
+                </div>
+                <span class="count" id="top-picks-count">-</span>
               </div>
-              <button class="btn-secondary btn-small" id="sector-modal-open">查看全部 19 个 →</button>
+              <div id="top-picks-list"></div>
             </div>
-            <div id="sector-ranking-list"></div>
-          </div>
-          <div class="card perf-card" id="performance-curve-card">
-            <div class="table-head">
-              <div>
-                <h2>策略表现</h2>
-                <p class="subtle">回测累计收益与最大回撤。样本少时仅供参考——回测页有 7 项已知局限。</p>
+            <div class="priority-grid">
+              <div class="card risk-card" id="holding-risks-card">
+                <div class="table-head">
+                  <div>
+                    <h2>我的持仓</h2>
+                    <p class="subtle">成本/现价/盈亏按风险等级排序。点击行可填入标记卡。</p>
+                  </div>
+                </div>
+                <div id="holding-risks-list"></div>
               </div>
-              <span class="count" id="performance-summary">-</span>
-            </div>
-            <div id="performance-curve-container" style="padding:4px 0;"></div>
-          </div>
-          <div class="card risk-card" id="holding-risks-card">
-            <div class="table-head">
-              <div>
-                <h2>我的持仓</h2>
-                <p class="subtle">所有持仓的成本/现价/盈亏，按风险等级排序。点击行可填入标记卡。</p>
+              <div class="card plan-card" id="next-session-card">
+                <div class="table-head">
+                  <div>
+                    <h2>今日交易计划</h2>
+                    <p class="subtle" id="next-session-subtitle">下一交易日候选标的（基于 Trend20 今日信号）</p>
+                  </div>
+                </div>
+                <div id="next-session-list"></div>
               </div>
             </div>
-            <div id="holding-risks-list"></div>
-          </div>
-          <div class="card plan-card" id="next-session-card">
-            <div class="table-head">
-              <div>
-                <h2>今日交易计划</h2>
-                <p class="subtle" id="next-session-subtitle">下一交易日候选标的（基于 Trend20 今日信号）</p>
+            <div class="market-state-row">
+              <div class="market-state-card">
+                <div class="ms-item clickable" data-drill="signals" title="大盘 MA20 之上时通过；否则暂停买入信号。点击查看信号明细">
+                  <span class="ms-label">大盘</span>
+                  <span class="ms-value" id="metric-market">-</span>
+                </div>
+                <div class="ms-item clickable" data-drill="signals" title="所选板块 MA20 走势状态：强/弱/震荡。点击查看信号明细">
+                  <span class="ms-label">板块</span>
+                  <span class="ms-value" id="metric-sector">-</span>
+                </div>
+                <div class="ms-item clickable" data-drill="signals" title="最近连续亏损笔数 / 阈值（来自 config.loss_streak_max），达到则暂停入场。点击查看信号明细">
+                  <span class="ms-label">暂停</span>
+                  <span class="ms-value" id="metric-loss">-</span>
+                </div>
+                <div class="ms-item clickable" data-drill="journal-holdings" title="当前持仓（真实+模拟）按最新收盘价计算的浮盈/浮亏。点击跳到'我的持仓'卡片">
+                  <span class="ms-label">持仓</span>
+                  <span class="ms-value" id="metric-pnl">-</span>
+                </div>
+                <div class="ms-item clickable" data-drill="backtest" title="策略在历史 K 线上的单标的 walk-forward 胜率。点击查看回测详情">
+                  <span class="ms-label">回测胜率</span>
+                  <span class="ms-value" id="metric-win">-</span>
+                </div>
               </div>
             </div>
-            <div id="next-session-list"></div>
-          </div>
-        </div>
-        <div class="layout">
-          <div class="card" id="dashboard-output-card">
-            <div class="table-head">
-              <div class="tab-group" id="output-tabs" role="tablist">
-                <button class="tab active" data-view="all" type="button">全部</button>
-                <button class="tab" data-view="user" type="button">自选</button>
-                <button class="tab" data-view="holding" type="button">持仓</button>
+            <div class="analysis-grid">
+              <div class="card sector-card" id="sector-ranking-card">
+                <div class="table-head">
+                  <div>
+                    <h2>板块强度</h2>
+                    <p class="subtle">基于 19 个行业/主题 ETF 的 MA20/M60 状态。点击行可填入标记卡。</p>
+                  </div>
+                  <button class="btn-secondary btn-small" id="sector-modal-open">查看全部 19 个 →</button>
+                </div>
+                <div id="sector-ranking-list"></div>
               </div>
-              <span class="count" id="output-summary">-</span>
+              <div class="card perf-card" id="performance-curve-card">
+                <div class="table-head">
+                  <div>
+                    <h2>策略表现</h2>
+                    <p class="subtle">回测累计收益与最大回撤。样本少时仅供参考。</p>
+                  </div>
+                  <span class="count" id="performance-summary">-</span>
+                </div>
+                <div id="performance-curve-container" class="chart-box"></div>
+              </div>
             </div>
-            <div id="dashboard-output"></div>
+            <div class="card" id="dashboard-output-card">
+              <div class="table-head">
+                <div class="tab-group" id="output-tabs" role="tablist">
+                  <button class="tab active" data-view="all" type="button">全部</button>
+                  <button class="tab" data-view="user" type="button">自选</button>
+                  <button class="tab" data-view="holding" type="button">持仓</button>
+                </div>
+                <span class="count" id="output-summary">-</span>
+              </div>
+              <div id="dashboard-output"></div>
+            </div>
           </div>
-          <div class="card">
+          <div class="card mark-card" id="mark-card">
             <h2>一期操作标记</h2>
-            <p class="subtle" style="margin: 0 0 12px 0; padding: 8px 10px; background: #eff6ff; border-radius: 4px; color: #1d4ed8;">
-              💡 提示:点上方"今日需关注"中的任一行可自动填入标的代码。
-            </p>
+            <p class="notice">点左侧信号、持仓、板块或计划行，会自动填入标的代码和最新价。</p>
+            <div class="mark-selection" id="mark-selection"><span>尚未选择标的</span></div>
             <div class="form">
               <div class="field">
                 <label>标的代码或名称（输入 2 字符搜索全市场）</label>
@@ -586,7 +672,7 @@
                 <span class="subtle" id="mark-code-hint">载入全市场候选中...</span>
               </div>
               <div class="field"><label>股数</label><input id="mark-shares" type="number" value="1000" min="1" /></div>
-              <div class="field"><label>价格</label><div style="display:flex;gap:6px;align-items:center;"><input id="mark-price" type="number" step="0.001" placeholder="默认取最新收盘价" style="flex:1;" /><button type="button" class="btn subtle" id="mark-price-fill" title="填入 600519 等当前代码的最新收盘价" style="padding:4px 10px;font-size:11px;">最新价</button></div><span class="subtle" id="mark-price-hint">点上方信号/持仓/板块/计划任一行可自动填入代码与价格</span></div>
+              <div class="field"><label>价格</label><div class="input-row"><input id="mark-price" type="number" step="0.001" placeholder="默认取最新收盘价" /><button type="button" class="btn" id="mark-price-fill" title="填入 600519 等当前代码的最新收盘价">最新价</button></div><span class="subtle" id="mark-price-hint">点左侧任一可选行可自动填入代码与价格</span></div>
               <div class="field">
                 <label>备注（可选）</label>
                 <input id="mark-note" type="text" placeholder="如：做 T / 试仓 / 加仓" maxlength="80" />
@@ -613,7 +699,7 @@
           <h1>信号选股</h1>
           <p class="view-subtitle">基于当前配置在所选范围内（默认策略池）扫描生成。可在配置页切预设，或在筛选区按"评级/评分/可操作"过滤。</p>
         </div>
-        <div class="card" id="benchmark-active-bar" style="background:#f4f7fb;padding:8px 12px;margin-bottom:8px;font-size:13px;color:#4a5568;">
+        <div class="card toolbar-card" id="benchmark-active-bar">
           当前准基：<span id="active-market">-</span> · <span id="active-style">-</span> · <span id="active-sector">-</span>
         </div>
         <div class="card">
@@ -622,19 +708,20 @@
             <span class="count" id="signals-count">-</span>
           </div>
           <div class="filterbar">
-            <div class="field"><label>搜索</label><input id="filter-keyword" placeholder="代码或名称" /></div>
-            <div class="field"><label>板块/范围</label><select id="signal-universe"></select></div>
+            <div class="field always-visible"><label>搜索</label><input id="filter-keyword" placeholder="代码或名称" /></div>
+            <div class="field always-visible"><label>板块/范围</label><select id="signal-universe"></select></div>
             <div class="field"><label>输出</label><select id="filter-action"></select></div>
             <div class="field"><label>持仓</label><select id="filter-holding"><option value="all">全部</option><option value="holding">有持仓</option><option value="none">无持仓</option></select></div>
             <div class="field"><label>最低胜率</label><input id="filter-win" type="number" min="0" max="100" step="1" value="0" /></div>
             <div class="field"><label>最低评分</label><input id="filter-score" type="number" min="0" max="100" step="1" value="0" /></div>
             <label class="inline-check"><input id="filter-actionable" type="checkbox" /> 仅看可操作</label>
           </div>
-          <div class="filterbar" style="grid-template-columns: 1fr auto;">
+          <div class="filterbar filterbar-secondary">
             <div class="field"><label>共振条件</label><select id="filter-gate"><option value="all">全部</option><option value="market">大盘通过</option><option value="sector">板块强</option><option value="leader">龙头强</option><option value="cross">站上 MA20</option><option value="low">低位</option></select></div>
             <button class="btn" id="filter-reset">重置筛选</button>
           </div>
           <table id="signals-table"></table>
+          <div id="signals-mobile-list" class="mobile-list"></div>
           <div class="pager">
             <span>20 条/页</span>
             <button class="btn" id="page-prev">上一页</button>
@@ -655,7 +742,7 @@
             <h2>模拟持仓曲线</h2>
             <span class="count" id="paper-curve-summary">-</span>
           </div>
-          <div id="paper-curve-container" style="padding:8px 4px;">
+          <div id="paper-curve-container" class="chart-box">
             <p class="subtle">用 paper 模式试跑 1-2 周，看这条曲线是涨是跌：曲线涨不代表策略稳赚，但曲线持续跌说明你的节奏明显跟规则脱节——比单看"今天赚没赚"更能反映长期纪律。</p>
           </div>
         </div>
@@ -719,7 +806,7 @@
               <span class="subtle">多信号</span>
             </button>
           </div>
-          <div id="preset-hint" class="subtle" style="margin-top:8px"></div>
+          <div id="preset-hint" class="subtle preset-hint"></div>
         </div>
         <div class="config-grid">
           <div class="card config-panel">
@@ -759,7 +846,7 @@
           </div>
           <div class="card config-panel">
             <h2>当前说明</h2>
-            <div class="data-status" style="margin:0">
+            <div class="data-status flush">
               <span><strong>配置影响</strong> 保存后会重新生成总览和信号页数据。</span>
               <span class="data-meta">一期仅做研究输出和操作标记</span>
             </div>
@@ -898,6 +985,37 @@
       el.textContent = msg;
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => { el.className = 'global-toast ' + kind; }, 3500);
+    }
+    function selectInstrumentForMark({ code, name = '', lastPrice = '', source = '已选标的', scroll = false }) {
+      if (!code) return;
+      const dashboard = document.getElementById('dashboard');
+      if (dashboard && !dashboard.classList.contains('active')) {
+        document.querySelector('nav button[data-view="dashboard"]')?.click();
+        scroll = true;
+      }
+      const input = document.getElementById('mark-code');
+      const priceInput = document.getElementById('mark-price');
+      const selection = document.getElementById('mark-selection');
+      const card = document.getElementById('mark-card');
+      if (input) input.value = code;
+      if (priceInput && lastPrice) {
+        priceInput.value = lastPrice;
+        priceInput.placeholder = `最新收盘价 ${lastPrice}`;
+      }
+      if (selection) {
+        const label = name ? `${escapeHtml(name)} · ${escapeHtml(code)}` : escapeHtml(code);
+        const priceText = lastPrice ? `最新价 ${escapeHtml(lastPrice)}` : '价格可手动填';
+        selection.innerHTML = `<span><strong>${label}</strong><br><span class="subtle">${escapeHtml(source)} · ${priceText}</span></span>`;
+      }
+      if (card) {
+        card.classList.remove('is-targeted');
+        void card.offsetWidth;
+        card.classList.add('is-targeted');
+        if (scroll || window.matchMedia('(max-width: 1100px)').matches) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+      showToast(lastPrice ? `已填入 ${code} · 价格默认最新收盘价,可手动调整` : `已填入 ${code}`, 'success');
     }
     async function refreshAndReload() {
       const btn = document.getElementById('refresh');
@@ -1235,7 +1353,9 @@
         item.classList.add('flash');
       });
       document.getElementById('metric-market').textContent = state.dashboard.metrics.market_filter;
-      document.getElementById('metric-sector').textContent = state.dashboard.metrics.sector_state;
+      // 2026-06-07: sector_state 字段已从 metrics 删除,前端改从 benchmarks 数组取
+      const sectorCard = (state.dashboard.benchmarks || []).find(b => b.key === 'sector');
+      document.getElementById('metric-sector').textContent = sectorCard ? sectorCard.state : '-';
       document.getElementById('metric-loss').textContent = `${state.dashboard.metrics.loss_streak} / 3`;
       // 持仓浮盈亏卡片
       const pnlEl = document.getElementById('metric-pnl');
@@ -1406,24 +1526,15 @@
       // 点击行 → 填入 mark 表单代码 + 价格（最新收盘价）
       list.querySelectorAll('.pick-row').forEach(row => {
         row.addEventListener('click', () => {
-          const code = row.dataset.code;
           // 视觉高亮：清掉其它行的 .selected，给当前行加上
           list.querySelectorAll('.pick-row.selected').forEach(r => r.classList.remove('selected'));
           row.classList.add('selected');
-          const input = document.getElementById('mark-code');
-          const priceInput = document.getElementById('mark-price');
-          if (input) {
-            input.value = code;
-            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-          // 自动填入最新价
-          if (priceInput && row.dataset.lastPrice) {
-            priceInput.value = row.dataset.lastPrice;
-            priceInput.placeholder = `最新收盘价 ${row.dataset.lastPrice}`;
-            showToast(`已填入 ${code} · 价格默认最新收盘价,可手动调整`, 'success');
-          } else {
-            showToast(`已填入 ${code}`, 'success');
-          }
+          selectInstrumentForMark({
+            code: row.dataset.code,
+            name: row.dataset.name,
+            lastPrice: row.dataset.lastPrice,
+            source: '今日需关注',
+          });
         });
       });
       // 快捷操作按钮：1 步提交（默认 1000 股、最新价、备注"快捷买入/卖出"）
@@ -1437,7 +1548,7 @@
           btn.textContent = action === 'buy' ? '提交中…' : '卖出中…';
           try {
             // 预填 mark 表单 + 立即调用 markTrade（markTrade 内部已有 real 模式 confirm）
-            document.getElementById('mark-code').value = code;
+            selectInstrumentForMark({ code, source: action === 'buy' ? '快捷买入' : '快捷卖出' });
             await markTrade(action === 'buy' ? 'BUY' : 'SELL');
           } finally {
             btn.disabled = false;
@@ -1500,20 +1611,15 @@
         }, 50);
         return;
       }
-      const input = document.getElementById('mark-code');
-      const priceInput = document.getElementById('mark-price');
-      const lastPrice = target.dataset.lastPrice;
-      if (input) {
-        input.value = code;
-        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      if (priceInput && lastPrice) {
-        priceInput.value = lastPrice;
-        priceInput.placeholder = `最新收盘价 ${lastPrice}`;
-        showToast(`已填入 ${code} · 价格默认最新收盘价,可手动调整`, 'success');
-      } else {
-        showToast(`已填入 ${code}`, 'success');
-      }
+      const source = row.classList.contains('risk-row') ? '我的持仓'
+        : row.classList.contains('plan-row') ? '今日交易计划'
+        : '板块强度';
+      selectInstrumentForMark({
+        code,
+        name: row.dataset.name,
+        lastPrice: row.dataset.lastPrice,
+        source,
+      });
     });
 
     // ESC 关闭弹窗
@@ -2217,6 +2323,7 @@
       document.getElementById('page-prev').disabled = state.signalPage <= 1;
       document.getElementById('page-next').disabled = state.signalPage >= state.signalTotalPages;
       renderSignalTable(document.getElementById('signals-table'), rows);
+      renderSignalMobileCards(document.getElementById('signals-mobile-list'), rows);
     }
 
     function resetSignalFilters() {
@@ -2294,6 +2401,7 @@
         const tr = document.createElement('tr');
         tr.dataset.code = row.code;
         tr.dataset.name = row.name;
+        tr.dataset.lastPrice = row.last_price ?? '';
         tr.style.cursor = 'pointer';
         tr.title = `点击把 ${row.name}（${row.code}）填入标记表单`;
         const action = row.action === 'EXIT_ALERT' ? '标记卖出' : row.action === 'NORMAL' || row.action === 'TRIAL' ? '标记买入' : '忽略';
@@ -2302,16 +2410,12 @@
           : '';
         tr.innerHTML = `<td>${row.code}</td><td>${row.name}</td><td>${row.sector || '-'}</td><td>${row.board || '-'}</td><td>${row.last_price ?? '-'}</td><td class="${row.change_pct >= 0 ? 'up' : 'down'}">${fmtPct(row.change_pct)}</td><td>${fmtPct(row.pnl_pct)}</td><td>${row.holding_shares || 0} 股</td><td><span class="pill ${row.action}">${actionLabel[row.action] || row.action}</span></td><td>${row.score ?? '-'}</td><td>${fmtPct(row.estimated_win_rate)}</td><td><button class="btn" data-code="${row.code}" data-action="${action}">${action}</button></td><td>${row.reason_text || '-'}</td>${watchlistCell}`;
         tr.addEventListener('click', () => {
-          // 点击整行：把标的填入标记表单 + 自动勾选"标记买入"
-          const select = document.getElementById('mark-code');
-          if (!select.querySelector(`option[value="${row.code}"]`)) {
-            // 该标的不在 select 里，临时加入
-            const opt = document.createElement('option');
-            opt.value = row.code;
-            opt.textContent = `${row.code} ${row.name}`;
-            select.appendChild(opt);
-          }
-          select.value = row.code;
+          selectInstrumentForMark({
+            code: row.code,
+            name: row.name,
+            lastPrice: row.last_price,
+            source: '信号选股',
+          });
           // 高亮当前选中行
           body.querySelectorAll('tr.selected-row').forEach(r => r.classList.remove('selected-row'));
           tr.classList.add('selected-row');
@@ -2319,14 +2423,91 @@
         body.appendChild(tr);
       });
       body.querySelectorAll('button[data-code]').forEach(button => {
-        button.addEventListener('click', () => {
-          document.getElementById('mark-code').value = button.dataset.code;
+        button.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const row = button.closest('tr');
+          selectInstrumentForMark({
+            code: button.dataset.code,
+            name: row?.dataset.name,
+            lastPrice: row?.dataset.lastPrice,
+            source: '信号选股',
+          });
           if (button.dataset.action === '标记卖出') markTrade('SELL');
           if (button.dataset.action === '标记买入') markTrade('BUY');
         });
       });
       body.querySelectorAll('button[data-watchlist-toggle]').forEach(btn => {
-        btn.addEventListener('click', () => toggleWatchlist(btn));
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleWatchlist(btn);
+        });
+      });
+    }
+
+    function renderSignalMobileCards(container, rows) {
+      if (!container) return;
+      if (!rows.length) {
+        container.innerHTML = '<p class="pick-empty">当前筛选下暂无信号。</p>';
+        return;
+      }
+      container.innerHTML = rows.map(row => {
+        const action = row.action === 'EXIT_ALERT' ? '标记卖出' : row.action === 'NORMAL' || row.action === 'TRIAL' ? '标记买入' : '填入标记';
+        return `<div class="signal-card" data-code="${row.code}" data-name="${escapeAttr(row.name)}" data-last-price="${row.last_price ?? ''}">
+          <div class="signal-card-head">
+            <div class="signal-card-title">
+              <strong>${escapeHtml(row.name)} <span class="subtle">${escapeHtml(row.code)}</span></strong>
+              <span>${escapeHtml(row.sector || row.board || '-')}</span>
+            </div>
+            <span class="pill ${row.action}">${actionLabel[row.action] || row.action}</span>
+          </div>
+          <div class="signal-card-metrics">
+            <span>现价<strong>${row.last_price ?? '-'}</strong></span>
+            <span>评分<strong>${row.score ?? '-'}</strong></span>
+            <span>胜率<strong>${fmtPct(row.estimated_win_rate)}</strong></span>
+          </div>
+          <div class="signal-card-reason">${escapeHtml(row.reason_text || '-')}</div>
+          <div class="signal-card-actions">
+            <button class="btn" data-mobile-select="${row.code}">填入标记</button>
+            <button class="btn primary" data-mobile-action="${action}" data-mobile-code="${row.code}">${action}</button>
+          </div>
+        </div>`;
+      }).join('');
+      container.querySelectorAll('.signal-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('button')) return;
+          selectInstrumentForMark({
+            code: card.dataset.code,
+            name: card.dataset.name,
+            lastPrice: card.dataset.lastPrice,
+            source: '信号选股',
+          });
+        });
+      });
+      container.querySelectorAll('[data-mobile-select]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const card = btn.closest('.signal-card');
+          selectInstrumentForMark({
+            code: card.dataset.code,
+            name: card.dataset.name,
+            lastPrice: card.dataset.lastPrice,
+            source: '信号选股',
+          });
+        });
+      });
+      container.querySelectorAll('[data-mobile-action]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const card = btn.closest('.signal-card');
+          selectInstrumentForMark({
+            code: card.dataset.code,
+            name: card.dataset.name,
+            lastPrice: card.dataset.lastPrice,
+            source: '信号选股',
+          });
+          if (btn.dataset.mobileAction === '标记卖出') markTrade('SELL');
+          if (btn.dataset.mobileAction === '标记买入') markTrade('BUY');
+        });
       });
     }
 

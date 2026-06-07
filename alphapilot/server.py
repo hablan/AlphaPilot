@@ -164,10 +164,13 @@ class AlphaPilotHandler(BaseHTTPRequestHandler):
                 return
             if parsed.path == "/api/refresh":
                 # 增量更新：只拉 last_trade_date+1 到今天
-                self._send_json(self.service.incremental_update(
+                result = self.service.incremental_update(
                     provider=payload.get("provider", "auto"),
                     universe=payload.get("universe", "watchlist"),
-                ))
+                )
+                # 2026-06-07: 刷新后清空 dashboard/backtest 缓存,让下次请求拿到新数据
+                self.service._ttl_cache.invalidate()
+                self._send_json(result)
                 return
             if parsed.path == "/api/watchlist/add":
                 self._send_json(self.service.add_to_watchlist(
@@ -190,6 +193,8 @@ class AlphaPilotHandler(BaseHTTPRequestHandler):
                 note=payload.get("note"),
                 mode=payload.get("mode", "real"),
             )
+            # 2026-06-07: 标记交易后清空 dashboard 缓存,持仓/盈亏立即反映
+            self.service._ttl_cache.invalidate("dashboard")
             self._send_json(result)
         except (ValueError, KeyError) as exc:
             self._send_json({"error": HTTP_ERR_BAD_PARAMS.format(exc=exc)}, status=400)
