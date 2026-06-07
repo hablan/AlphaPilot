@@ -759,18 +759,24 @@ class AlphaPilotService:
                 dist_ma20 = (last_price / ma20 - 1) if ma20 else 0
                 alerts = []
                 severity = "ok"  # ok / warn / danger
+                # stop_loss_pct 是负数阈值（如 -0.10）;pnl_pct 也是负数时 pnl_pct <= stop_loss_pct
                 if pnl_pct >= take_profit_pct:
-                    alerts.append(f"浮盈 {pnl_pct*100:.1f}% ≥ 止盈线 {take_profit_pct*100:.0f}%")
+                    alerts.append(f"已触发止盈（+{pnl_pct*100:.1f}% ≥ +{take_profit_pct*100:.0f}%）")
                     severity = "warn"
-                if pnl_pct <= -stop_loss_pct:
-                    alerts.append(f"浮亏 {-pnl_pct*100:.1f}% ≥ 止损线 {stop_loss_pct*100:.0f}%")
+                if pnl_pct <= stop_loss_pct:
+                    alerts.append(f"已触发止损（{pnl_pct*100:.1f}% ≤ {stop_loss_pct*100:.0f}%）")
                     severity = "danger"
+                elif pnl_pct < 0:
+                    # 距离止损线还有多少
+                    distance_pct = (stop_loss_pct - pnl_pct) * 100
+                    alerts.append(f"未触发止损（当前 {pnl_pct*100:.1f}%，距止损线 {abs(distance_pct):.1f} 个百分点）")
                 if dist_ma20 < -0.02:
-                    alerts.append(f"跌破 MA20 ({dist_ma20*100:.1f}%)")
-                    severity = "danger" if severity != "danger" else severity
+                    alerts.append(f"跌破 MA20（{dist_ma20*100:.1f}%）")
+                    if severity == "ok":
+                        severity = "warn"
                 elif pnl_pct < 0 and dist_ma20 < 0:
-                    alerts.append(f"在 MA20 下方运行")
-                    if severity == "info":
+                    alerts.append(f"在 MA20 下方运行（{dist_ma20*100:.1f}%）")
+                    if severity == "ok":
                         severity = "warn"
                 holdings.append({
                     "code": code,

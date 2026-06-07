@@ -151,6 +151,11 @@
     .output-table .pnl-down { color: #b91c1c; font-weight: 600; }
     .output-table .reason-cell { color: #475569; font-size: 12px; }
     .output-table .gates-cell { color: #334155; font-size: 12px; font-family: ui-monospace, monospace; white-space: nowrap; }
+    .gate-pill { display: inline-block; padding: 1px 6px; margin: 0 2px; border-radius: 4px; font-size: 11px; font-family: -apple-system, "PingFang SC", sans-serif; font-weight: 500; cursor: help; }
+    .gate-pill.gate-ok { background: #dcfce7; color: #15803d; }
+    .gate-pill.gate-bad { background: #fee2e2; color: #b91c1c; opacity: 0.75; }
+    html[data-theme="dark"] .gate-pill.gate-ok { background: #14532d; color: #86efac; }
+    html[data-theme="dark"] .gate-pill.gate-bad { background: #7f1d1d; color: #fca5a5; }
     .output-table .more-link { color: var(--muted); text-align: center; font-size: 11px; font-style: italic; }
     .subtle { color: #94a3b8; font-size: 11px; margin: 2px 0 0 0; font-weight: 400; }
     .real-warning { display: inline-block; margin-top: 4px; padding: 4px 8px; background: #fee2e2; color: #991b1b; border-radius: 4px; font-weight: 600; font-size: 11px; }
@@ -196,6 +201,7 @@
     .freshness-missing code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
     /* 持仓卡片专属样式 */
     .holdings-summary { display: flex; align-items: baseline; gap: 8px; padding: 0 0 10px 0; border-bottom: 1px solid #edf2f7; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+    .holdings-summary .holdings-total { font-size: 18px; font-weight: 700; }
     .holdings-name { display: flex; flex-direction: column; gap: 2px; }
     .holdings-name strong { font-size: 13px; color: #1e293b; }
     .holdings-prices { display: flex; flex-direction: column; gap: 1px; font-size: 11px; }
@@ -205,6 +211,12 @@
     .alert-line { color: #b45309; }
     .risk-row.ok { border-left: 3px solid #94a3b8; }
     .risk-row .pnl.neutral { color: #64748b; }
+    .pnl-soft { text-align: right; font-weight: 600; font-size: 12px; }
+    .pnl-soft.up-soft { color: #16a34a; opacity: 0.8; }
+    .pnl-soft.down-soft { color: #dc2626; opacity: 0.7; }
+    .pnl-soft.neutral { color: #64748b; }
+    html[data-theme="dark"] .pnl-soft.up-soft { color: #4ade80; }
+    html[data-theme="dark"] .pnl-soft.down-soft { color: #f87171; }
     .badge { display: inline-block; width: 18px; text-align: center; font-weight: 700; font-size: 12px; }
     .badge.sev-ok { color: #16a34a; }
     .badge.sev-warn { color: #d97706; }
@@ -694,6 +706,41 @@
       <footer class="risk"><strong>风险提示</strong> 本页面仅用于策略研究、规则回测和计划复盘展示，不构成任何投资建议，不提供个性化投资顾问服务，不承诺收益；一期仅做买入/卖出标记及股数记录，不连接券商、不自动下单。</footer>
     </main>
   </div>
+  <!-- 快捷键帮助弹层 -->
+  <div class="modal-backdrop" id="kbd-help-backdrop" hidden>
+    <div class="modal" id="kbd-help-modal">
+      <div class="modal-head">
+        <h2>键盘快捷键</h2>
+        <button class="modal-close" id="kbd-help-close">×</button>
+      </div>
+      <div class="kbd-help-content">
+        <table class="kbd-table">
+          <tr><th colspan="2" class="kbd-section">导航</th></tr>
+          <tr><td><kbd>g</kbd> + <kbd>d</kbd></td><td>总览</td></tr>
+          <tr><td><kbd>g</kbd> + <kbd>s</kbd></td><td>信号</td></tr>
+          <tr><td><kbd>g</kbd> + <kbd>j</kbd></td><td>复盘</td></tr>
+          <tr><td><kbd>g</kbd> + <kbd>b</kbd></td><td>回测</td></tr>
+          <tr><td><kbd>g</kbd> + <kbd>c</kbd></td><td>配置</td></tr>
+          <tr><th colspan="2" class="kbd-section">操作</th></tr>
+          <tr><td><kbd>r</kbd></td><td>手动刷新数据</td></tr>
+          <tr><td><kbd>?</kbd></td><td>显示此帮助</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>关闭弹窗</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+    <!-- 板块强度全部 19 个弹层 -->
+    <div class="modal-backdrop" id="sector-modal-backdrop" hidden>
+      <div class="modal" id="sector-modal">
+        <div class="modal-head">
+          <h2>全部 19 个行业/主题 ETF</h2>
+          <button class="modal-close" id="sector-modal-close">×</button>
+        </div>
+        <div id="sector-modal-list"></div>
+      </div>
+    </div>
   <!-- 快捷键帮助弹层 -->
   <div class="modal-backdrop" id="kbd-help-backdrop" hidden>
     <div class="modal" id="kbd-help-modal">
@@ -1449,7 +1496,7 @@
         return `<div class="sector-group">
           <div class="sector-group-label">${g.label} · ${g.rows.length}</div>
           ${top.map(row => `
-            <div class="sector-row" data-code="${row.symbol}" data-name="${row.name}" data-sector="${row.sector || ''}">
+            <div class="sector-row" data-code="${row.symbol}" data-name="${row.name}" data-sector="${row.sector || ''}" title="今日涨幅：${(row.change_pct * 100).toFixed(2)}%\n距 MA20：${row.dist_ma20_pct >= 0 ? '+' : ''}${(row.dist_ma20_pct * 100).toFixed(1)}%\n强弱分组主要看 MA20 与斜率，今日涨幅仅供参考">
               <span class="name">${row.name} <span class="subtle">${row.sector || ''}</span></span>
               <span class="dist ${(row.dist_ma20_pct || 0) >= 0 ? 'up' : 'down'}">${row.dist_ma20_pct >= 0 ? '+' : ''}${(row.dist_ma20_pct * 100).toFixed(1)}%</span>
               <span class="change ${(row.change_pct || 0) >= 0 ? 'up' : 'down'}">${(row.change_pct * 100).toFixed(2)}%</span>
@@ -1464,6 +1511,17 @@
         { key: 'weak', label: '🔴 弱势（跌破 MA20 + 斜率向下）', rows: ranking.weak },
       ];
       container.innerHTML = groups.filter(g => g.rows.length > 0).map(renderGroup).join('');
+      // 在板块卡标题下加一行小字说明
+      const card = document.getElementById('sector-ranking-card');
+      const hintEl = card?.querySelector('.sector-hint');
+      if (card && !hintEl) {
+        const hint = document.createElement('p');
+        hint.className = 'sector-hint subtle';
+        hint.style.cssText = 'font-size:11px;margin:-4px 0 8px 0;color:#64748b;';
+        hint.textContent = '分组看 MA20 偏离 + 斜率;今日涨幅仅供日内参考(列在右侧)';
+        const heading = card.querySelector('h2')?.parentElement;
+        heading?.appendChild(hint);
+      }
     }
 
     // 打开板块强度弹窗,显示完整 19 个 ETF
@@ -1511,7 +1569,7 @@
       const totalPnl = summary.total_cost > 0 ? (summary.unrealized_pnl || 0) : 0;
       const sign = totalPnl >= 0 ? '+' : '';
       const pnlCls = totalPnl >= 0 ? 'up' : 'down';
-      const summaryLine = `<div class="holdings-summary"><span class="${pnlCls}">${sign}¥${Math.round(totalPnl).toLocaleString('zh-CN')}</span> <span class="subtle">浮盈/亏 · ${positionCount} 只</span></div>`;
+      const summaryLine = `<div class="holdings-summary"><span class="${pnlCls} holdings-total">${sign}¥${Math.round(totalPnl).toLocaleString('zh-CN')}</span> <span class="subtle">浮盈/亏 · ${positionCount} 只</span></div>`;
       const rows = holdings.map(r => {
         const modeLabel = r.mode === 'real' ? '真实' : '模拟';
         const pnl = r.pnl_pct;
@@ -1528,7 +1586,7 @@
           <span class="holdings-prices">
             <span class="subtle">成本 ${r.cost_price.toFixed(2)}</span>
             <span class="subtle">现价 ${priceStr}</span>
-            <span class="pnl ${pnl == null ? 'neutral' : (pnl >= 0 ? 'up' : 'down')}">${pnlStr}</span>
+            <span class="pnl-soft ${pnl == null ? 'neutral' : (pnl >= 0 ? 'up-soft' : 'down-soft')}">${pnlStr}</span>
           </span>
           <span class="holdings-meta">
             <span class="badge sev-${r.severity}">${sevBadge}</span>
@@ -1552,7 +1610,21 @@
       const sign = summary.total_return_pct >= 0 ? '+' : '';
       const cls = summary.total_return_pct >= 0 ? 'pnl-up' : 'pnl-down';
       if (summaryEl) {
-        summaryEl.innerHTML = `<span class="${cls}">${sign}${(summary.total_return_pct * 100).toFixed(1)}%</span> · 最大回撤 ${(summary.max_drawdown_pct * 100).toFixed(1)}% · ${summary.trade_count} 笔`;
+        const sign = summary.total_return_pct >= 0 ? '+' : '';
+        const cls = summary.total_return_pct >= 0 ? 'pnl-up' : 'pnl-down';
+        // 样本量提示: <10 笔标红警示, <30 笔黄色提醒
+        const n = summary.trade_count || 0;
+        let sampleTag = '';
+        if (n === 0) {
+          sampleTag = '<span class="sample-tag" style="background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:4px;font-size:11px;">无样本</span>';
+        } else if (n < 10) {
+          sampleTag = `<span class="sample-tag" style="background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:4px;font-size:11px;" title="样本不足 10 笔,胜率无统计意义">⚠ ${n} 笔,仅供研究</span>`;
+        } else if (n < 30) {
+          sampleTag = `<span class="sample-tag" style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:11px;" title="样本偏少,谨慎参考">${n} 笔,样本偏少</span>`;
+        } else {
+          sampleTag = `<span class="sample-tag" style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-size:11px;">${n} 笔</span>`;
+        }
+        summaryEl.innerHTML = `<span class="${cls}">${sign}${(summary.total_return_pct * 100).toFixed(1)}%</span> · 最大回撤 ${(summary.max_drawdown_pct * 100).toFixed(1)}% · ${sampleTag}`;
       }
       if (curve.length === 0) {
         container.innerHTML = '<p class="sector-empty">暂无回测数据</p>';
@@ -1744,14 +1816,19 @@
     // 把 gate_state 压缩成可读字符串，让 SKIP 用户能看出"哪个不满足"
     function _gateSummary(gates) {
       if (!gates) return '-';
+      // 用「条件·结论」短词代替 ✓/✗;鼠标悬停查看详细定义
       const items = [
-        ['大盘', gates.market_above_ma20],
-        ['板块', gates.sector_strong],
-        ['龙头', gates.leader_strong],
-        ['金叉', gates.just_crossed_ma20],
-        ['低位', gates.low_position],
+        ['大盘', gates.market_above_ma20, 'MA20', '收盘价站上 20 日均线,趋势向好'],
+        ['板块', gates.sector_strong, '强', '所选板块 ETF 也站上 MA20 且斜率向上'],
+        ['龙头', gates.leader_strong, '龙头', '板块龙头股表现强于板块整体'],
+        ['金叉', gates.just_crossed_ma20, '刚金叉', '过去 N 天内任意一天收盘上穿 MA20'],
+        ['低位', gates.low_position, '低位', '当前股价距 60 日高点回撤 ≥ 阈值,留有上行空间'],
       ];
-      return items.map(([name, ok]) => `${name}${ok ? '✓' : '✗'}`).join(' ');
+      return items.map(([name, ok, label, tip]) => {
+        const cls = ok ? 'gate-ok' : 'gate-bad';
+        const txt = `${name}·${ok ? label : '未达'}`;
+        return `<span class="gate-pill ${cls}" title="${escapeHtml(tip)}">${txt}</span>`;
+      }).join(' ');
     }
 
     function applyBenchmarkCard(key, card) {
