@@ -104,6 +104,28 @@ git checkout .
 - 数据库 schema 兼容（添加字段时用默认值）
 - 配置文件键名不变
 
+## 前端样式约定 (2026-06-07 更新)
+
+`web/index.html` 是单文件 SPA(嵌入式 CSS+JS),无构建步骤。新增 UI 时遵循:
+
+**可复用 class (本次会话固化):**
+- `.btn.btn-small` — 28px 高, 12px 字号(普通按钮)
+- `.btn-secondary` — 浅灰底 + 灰边(中性按钮,不要用 `.btn.primary` 当中性按钮)
+- `.btn.icon-btn` — 28×28 方形图标按钮;loading 时配合 `@keyframes spin` 旋转
+- `.gate-pill` / `.gate-ok` / `.gate-bad` — 信号门控列的短词 pill(取代 ✓/✗),hover `title` 显示完整定义
+- `.modal-backdrop` / `.modal` — 板块/快捷键弹窗;**这两个 class 的基础规则脆弱,改了会同时让两个弹窗坏**
+- `.holdings-summary` / `.holdings-name` / `.holdings-prices` / `.holdings-meta` — 持仓卡 4 列结构(已含仓位占比行)
+
+**隐藏行为契约:**
+- 行元素(`.pick-row` / `.sector-row` / `.plan-row` / `.risk-row`)若有 `data-code` + `data-last-price`,点击会自动填入 mark 表单代码+价格(无需自己写 listener)
+- `<meta name="build-id">` + `/api/build-id` 是自动 reload 机制,改了会让前端缓存问题重现
+- `html[data-theme="dark"]` 暗色覆写:新增 UI 组件时**必须**同步加暗色样式,否则切到暗色模式会发白
+
+**脆弱的 layout:**
+- `.topbar` grid 模板列数 = 6(`minmax(260px, 1fr) repeat(3, 160px) auto auto`),不要改回 5(改回会让"更新"按钮被挤到第 2 行占满 1fr)
+- `<span class="holdings-meta">` 现在含 3 行(severity badge / 仓位占比 / MA20 距),不要假设只有 1 行
+- `<span class="sector-hint">` 是板块强度卡的小字提示,改这块布局需要保留
+
 ## 测试原则
 
 - 新功能必须有单元测试

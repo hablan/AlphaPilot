@@ -80,6 +80,29 @@
 - [x] #data [claude] 2026-06-03 修复 _has_recent_bars 1 行误判 bug：加 MIN_BARS_FOR_RECENT=60 门槛，防止 sample 残留导致 launchd 永久跳过标的；同时把 trend20 settings 误改全部 false 还原为默认。
 - [x] #verify [claude] 2026-06-03 端到端真实数据验证：watchlist 10 个标的 730+ 行真实 K 线；Trend20 在真实数据上行为正确（市场无金叉机会 → 全 SKIP，浮盈持仓 → EXIT_ALERT）；backtest 输出 7 笔交易（100% win, take_profit 触发）；dashboard 渲染正常。231 测试全绿。
 - [x] #dx [claude] 2026-06-03 修复命令：加 alphapilot/__main__.py + pyproject [project.scripts] 让 `python3 -m alphapilot` 和 `alphapilot` 都能跑；更新 README/launchd 模板所有引用。
+- [x] #ux [claude] 2026-06-07 首页 UX 优化(8 项,6 个 commit 全部推送,见 CHANGELOG.md)。归属:前端(CodeX 范围)由 Claude 临时代做,后端 API/数据由 Claude。
+  - P0 立刻影响信任(commit b63ac17):
+    - 板块强度每行加 hover tooltip 说明「今日涨幅」与「MA20 偏离」区别,卡标题下加小字 hint
+    - 持仓卡:修复后端 bug `pnl_pct <= -stop_loss_pct`(因 `-stop_loss_pct` 是正数,所有持仓都误报 danger)→ 改为 `pnl_pct <= stop_loss_pct` 严格比较;未触发时显示「距止损线 N 个百分点」;severity 从 danger 改为 warn
+    - 门控符号:✓/✗ 改为「条件·结论」短词 pill(大盘·MA20 / 板块·强 / 金叉·刚金叉 等),hover 显示完整定义
+  - P1 体验明显变好(commit aec8541):
+    - 持仓卡显示「仓位占比」:后端 `_holding_risks()` 加 `cost_value` 和 `position_share_pct` 字段;前端 meta 行展示「仓位 ¥93,000 · 40.8%」
+    - 资金流失败文案去掉 `eastmoney_fund_flow` 等技术名词,改为「资金流接口今日拉取失败 · 已用本地 55 标的 / 1210 条缓存」
+    - 标记买入价格自动填:top-picks / sector / plan / risk 行点击时自动填最新收盘价;价格栏旁加「最新价」按钮;新增 `/api/quote` 端点和 `service.quote(code)` 方法
+  - P2 锦上添花(commit b63ac17 + ce49326 + f2957b6 + 05d588c + 736dbd8):
+    - 策略表现回测样本 <10 笔加红色 ⚠ 警示标签; <30 笔黄色; ≥30 笔绿色
+    - 持仓配色:顶部总盈亏 18px 加粗;每行浮亏用浅色(opacity 0.7)
+    - 移除 3 个 ticker 下的「⇄ 点切换基准」提示语(按钮已有 title)
+    - 更新按钮缩小 + 删 1-3 天 10 freshness 块(普通投资者看不懂 lag 分布)
+    - 更新按钮换成 🔄 图标,放在主题按钮右侧;loading 时旋转
+    - 修复板块强度/快捷键弹窗不显示 bug(`.modal-backdrop` / `.modal` 基础 CSS 之前被误删)
+  - **前端组件约定(供 CodeX 同步):**
+    - 新增可用 CSS class: `.btn-small`(28px)、`.btn-secondary`(浅灰中性)、`.icon-btn`(28×28 方形)、`.gate-pill`/`.gate-ok`/`.gate-bad`(门控 pill)
+    - 行元素加 `data-last-price` 后,点击会自动填 mark 表单(代码 + 价格)
+    - 新增 UI 组件需同步加 `html[data-theme="dark"]` 暗色覆写
+    - `.topbar` grid 列数为 6(`minmax(260px, 1fr) repeat(3, 160px) auto auto`),不要改回 5
+    - `.modal-backdrop` / `.modal` 基础规则脆弱,改了会让板块弹窗和快捷键弹窗同时坏
+
 - [x] #safety [claude] 2026-06-03 settings 误改保护：service.reset_strategy_config() + POST /api/config/reset 端点 + cache.delete_setting()。手抖/测试把 settings 改坏后一键恢复默认（关键场景：本次 P0 调试时 settings 被全改 false 就是缺这个保护）。新增 3 个测试。234 测试全绿。
 
 ### 阶段 4：架构重构
