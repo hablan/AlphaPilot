@@ -112,6 +112,8 @@
     .ticker strong { font-size: 15px; margin-right: 8px; display: inline-block; min-width: 60px; }
     .ticker .change { display: inline-block; font-size: 13px; vertical-align: middle; white-space: nowrap; }
     .btn { height: 34px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #334155; padding: 0 14px; font-weight: 700; cursor: pointer; }
+    .btn.btn-small { height: 28px; padding: 0 10px; font-size: 12px; }
+    .btn-secondary { background: #f1f5f9; color: #334155; border-color: #d7e0eb; }
     .btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
     .btn.loading { position: relative; color: transparent !important; }
     .btn.loading::after {
@@ -183,15 +185,6 @@
     .kbd-table .kbd-section { background: #f8fafc; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
     .kbd-table kbd { display: inline-block; min-width: 20px; padding: 2px 6px; margin: 0 2px; font-family: ui-monospace, monospace; font-size: 11px; color: #1e293b; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 3px; }
     .kbd-table td:first-child { white-space: nowrap; width: 40%; }
-    /* 数据状态细节 */
-    .freshness-detail { margin: -8px 0 12px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; color: #334155; }
-    .freshness-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
-    .fresh-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
-    .fresh-tag.ok { background: #dcfce7; color: #166534; }
-    .fresh-tag.warn { background: #fef3c7; color: #92400e; }
-    .fresh-tag.danger { background: #fee2e2; color: #991b1b; }
-    .freshness-missing { color: #64748b; font-size: 11px; }
-    .freshness-missing code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
     /* 持仓卡片专属样式 */
     .holdings-summary { display: flex; align-items: baseline; gap: 8px; padding: 0 0 10px 0; border-bottom: 1px solid #edf2f7; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
     .holdings-summary .holdings-total { font-size: 18px; font-weight: 700; }
@@ -398,7 +391,7 @@
           <div class="benchmark-dropdown" id="dropdown-sector" hidden></div>
         </div>
         <button class="btn-secondary btn-small" id="theme-toggle" title="切换亮/暗色主题">🌙</button>
-        <button class="btn primary" id="refresh">更新</button>
+        <button class="btn primary btn-small" id="refresh" title="拉取最新行情/资金流数据">更新</button>
       </header>
       <div class="global-toast" id="global-toast"></div>
 
@@ -407,7 +400,6 @@
           <span><strong>数据状态</strong> <span id="data-status-message">-</span></span>
           <span class="data-meta" id="data-status-meta">-</span>
         </div>
-        <div class="freshness-detail" id="freshness-detail" hidden></div>
         <div class="market-state-row">
           <div class="market-state-card">
             <div class="ms-item clickable" data-drill="signals" title="大盘 MA20 之上时通过；否则暂停买入信号。点击查看信号明细">
@@ -2081,28 +2073,6 @@
       banner.className = `data-status ${status.status || ''} ff-${fundFlowStatus}${sampleCount > 0 ? ' has-sample' : ''}`;
       message.textContent = (status.message || '-') + (fundFlowStatus === 'failed' ? ' · 资金流拉取失败' : '');
       meta.textContent = `K线 ${status.latest_trade_date || '-'} · ${providerText || '-'} · ${barCountText} · ${fundFlowText}${sampleTag} ${ageText}`;
-      // 数据完整性细节：把 lag_distribution 展开成可见清单
-      const freshness = status.freshness || {};
-      const lag = freshness.lag_distribution || {};
-      const missing = freshness.missing_symbols || [];
-      const totalSymbols = Object.values(lag).reduce((a, b) => a + b, 0);
-      const detailEl = document.getElementById('freshness-detail');
-      if (detailEl && totalSymbols > 0) {
-        const parts = [
-          lag.today > 0 ? `<span class="fresh-tag ok">今日 ${lag.today}</span>` : '',
-          lag['1-3 天'] > 0 ? `<span class="fresh-tag warn">1-3 天 ${lag['1-3 天']}</span>` : '',
-          lag['4-7 天'] > 0 ? `<span class="fresh-tag danger">4-7 天 ${lag['4-7 天']}</span>` : '',
-          lag['8+ 天'] > 0 ? `<span class="fresh-tag danger">8+ 天 ${lag['8+ 天']}</span>` : '',
-          lag['无数据'] > 0 ? `<span class="fresh-tag danger">无数据 ${lag['无数据']}</span>` : '',
-        ].filter(Boolean).join(' ');
-        const missingHtml = missing.length > 0
-          ? `<div class="freshness-missing">缺失标的: ${missing.slice(0, 5).map(s => '<code>' + escapeHtml(s) + '</code>').join(' ')}${missing.length > 5 ? ' 等 ' + missing.length + ' 个' : ''}</div>`
-          : '';
-        detailEl.innerHTML = '<div class="freshness-row">' + parts + '</div>' + missingHtml;
-        detailEl.hidden = false;
-      } else if (detailEl) {
-        detailEl.hidden = true;
-      }
     }
 
     function renderSignalFilters() {
