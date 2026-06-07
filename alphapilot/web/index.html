@@ -51,7 +51,7 @@
     nav button { height: 40px; border: 0; border-radius: 6px; background: transparent; color: #cbd5e1; text-align: left; padding: 0 12px; cursor: pointer; font: inherit; }
     nav button.active { background: #1d2a3a; color: #fff; box-shadow: inset 3px 0 0 #27c384; }
     main { padding: 20px 28px 36px; min-width: 0; }
-    .topbar { display: grid; grid-template-columns: minmax(260px, 1fr) repeat(3, 160px) auto; gap: 12px; align-items: start; margin-bottom: 18px; }
+    .topbar { display: grid; grid-template-columns: minmax(260px, 1fr) repeat(3, 160px) auto auto; gap: 12px; align-items: start; margin-bottom: 18px; }
     h1 { margin: 0; font-size: 24px; }
     .title p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
     .ticker, .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 28px rgba(15,23,42,.06); }
@@ -114,6 +114,10 @@
     .btn { height: 34px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #334155; padding: 0 14px; font-weight: 700; cursor: pointer; }
     .btn.btn-small { height: 28px; padding: 0 10px; font-size: 12px; }
     .btn-secondary { background: #f1f5f9; color: #334155; border-color: #d7e0eb; }
+    .btn.icon-btn { width: 28px; padding: 0; font-size: 14px; line-height: 1; }
+    .btn.icon-btn.loading #refresh,
+    .btn.icon-btn.loading { animation: spin 1s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     .btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
     .btn.loading { position: relative; color: transparent !important; }
     .btn.loading::after {
@@ -391,7 +395,7 @@
           <div class="benchmark-dropdown" id="dropdown-sector" hidden></div>
         </div>
         <button class="btn-secondary btn-small" id="theme-toggle" title="切换亮/暗色主题">🌙</button>
-        <button class="btn primary btn-small" id="refresh" title="拉取最新行情/资金流数据">更新</button>
+        <button class="btn-secondary btn-small icon-btn" id="refresh" title="拉取最新行情/资金流数据 (R)">🔄</button>
       </header>
       <div class="global-toast" id="global-toast"></div>
 
@@ -839,15 +843,12 @@
     }
     async function refreshAndReload() {
       const btn = document.getElementById('refresh');
-      const original = btn.textContent;
       btn.disabled = true;
       btn.classList.add('loading');
-      btn.textContent = '更新中… 0s';
       const startTime = Date.now();
-      // 1 秒粒度的倒计时
       const tick = setInterval(() => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        btn.textContent = `更新中… ${elapsed}s`;
+        btn.title = `更新中… ${elapsed}s`;
       }, 1000);
       try {
         const result = await api('/api/refresh', {
@@ -868,7 +869,7 @@
         clearInterval(tick);
         btn.disabled = false;
         btn.classList.remove('loading');
-        btn.textContent = original;
+        btn.title = '拉取最新行情/资金流数据 (R)';
       }
     }
     document.getElementById('mark-buy').addEventListener('click', () => markTrade('BUY'));
