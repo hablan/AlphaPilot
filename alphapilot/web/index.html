@@ -114,6 +114,14 @@
       border-color: #1d4ed8;
       color: #93c5fd;
     }
+    html[data-theme="dark"] .decision-strip {
+      background: rgba(30, 64, 175, 0.18);
+      border-color: #1d4ed8;
+      color: #bfdbfe;
+    }
+    html[data-theme="dark"] .decision-strip strong { color: var(--text); }
+    html[data-theme="dark"] .decision-strip .decision-meta { color: #93c5fd; }
+    html[data-theme="dark"] .action-chip { background: #111827; color: var(--muted); }
     html[data-theme="dark"] .notice,
     html[data-theme="dark"] .toolbar-card {
       background: rgba(30, 64, 175, 0.18);
@@ -322,7 +330,7 @@
     .pick-row .pick-action.EXIT_ALERT, .pick-row .pick-action.exit_alert { background: #fef3c7; color: #92400e; }
     .pick-row .pick-action.STOP, .pick-row .pick-action.stop { background: #fee2e2; color: #991b1b; }
     .pick-row .pick-score { text-align: right; font-weight: 700; color: #0f172a; font-size: 14px; }
-    .pick-row .pick-reason { color: #64748b; font-size: 12px; line-height: 1.5; }
+    .pick-row .pick-reason { color: #64748b; font-size: 12px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pick-row .pick-quick { text-align: right; }
     .quick-btn { padding: 4px 10px; font-size: 11px; border-radius: 4px; }
     .quick-btn.warn { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
@@ -379,6 +387,15 @@
     .dashboard-main { display: grid; gap: 16px; min-width: 0; }
     .priority-grid, .analysis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
     .analysis-grid { margin-bottom: 0; }
+    .decision-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 12px; border: 1px solid #bfdbfe; border-left: 4px solid var(--blue); border-radius: 8px; background: #eff6ff; color: #1e3a8a; font-size: 13px; line-height: 1.5; }
+    .decision-strip strong { color: #172554; }
+    .decision-strip .decision-meta { color: #1d4ed8; font-size: 12px; white-space: nowrap; }
+    .action-summary { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .action-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 700; }
+    .action-chip.buy { background: #dcfce7; color: #166534; }
+    .action-chip.trial { background: #e0f2fe; color: #075985; }
+    .action-chip.exit { background: #fef3c7; color: #92400e; }
+    .action-chip.stop { background: #fee2e2; color: #991b1b; }
     .mark-card { position: sticky; top: 16px; overflow: visible; }
     .mark-card.is-targeted { animation: markFocus 1.4s ease-out; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(37,99,235,.16), 0 12px 28px rgba(15,23,42,.08); }
     @keyframes markFocus {
@@ -409,6 +426,10 @@
     .signal-card-reason { color: #475569; font-size: 12px; line-height: 1.5; }
     .signal-card-actions { display: flex; gap: 8px; }
     .signal-card-actions .btn { flex: 1; height: 30px; padding: 0 8px; }
+    .collapsible-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 0; }
+    .collapsible-head .count { white-space: nowrap; }
+    .collapsible-body { margin-top: 12px; }
+    .card.is-collapsed .collapsible-body { display: none; }
     /* 紧凑"市场状态"行：5 个指标合并到 1 个横排卡片，腾出首屏空间 */
     .market-state-row { margin-bottom: 16px; }
     .market-state-card { display: flex; gap: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0; box-shadow: 0 12px 28px rgba(15,23,42,.06); overflow: hidden; }
@@ -587,14 +608,19 @@
         </div>
         <div class="dashboard-shell">
           <div class="dashboard-main">
+            <div class="decision-strip" id="decision-strip">
+              <span><strong>今日结论</strong> <span id="decision-text">正在生成今日结论...</span></span>
+              <span class="decision-meta" id="decision-meta">-</span>
+            </div>
             <div class="card recommend-card" id="top-picks-card">
               <div class="table-head">
                 <div>
                   <h2>今日需关注</h2>
-                  <p class="subtle">今日信号按紧急度排序。点行会填入右侧"操作标记"，触发原因最多展示 3 条。<span class="benchmark-hint" id="top-picks-benchmark-hint"></span></p>
+                  <p class="subtle">今日信号按紧急度排序。点行会填入右侧"操作标记"，触发原因首屏只显示摘要。<span class="benchmark-hint" id="top-picks-benchmark-hint"></span></p>
                 </div>
                 <span class="count" id="top-picks-count">-</span>
               </div>
+              <div class="action-summary" id="top-picks-action-summary"></div>
               <div id="top-picks-list"></div>
             </div>
             <div class="priority-grid">
@@ -663,16 +689,19 @@
                 <div id="performance-curve-container" class="chart-box"></div>
               </div>
             </div>
-            <div class="card" id="dashboard-output-card">
-              <div class="table-head">
+            <div class="card is-collapsed" id="dashboard-output-card">
+              <div class="collapsible-head">
                 <div class="tab-group" id="output-tabs" role="tablist">
                   <button class="tab active" data-view="all" type="button">全部</button>
                   <button class="tab" data-view="user" type="button">自选</button>
                   <button class="tab" data-view="holding" type="button">持仓</button>
                 </div>
-                <span class="count" id="output-summary">-</span>
+                <button class="btn btn-small btn-secondary" id="dashboard-output-toggle" type="button">展开规则输出</button>
               </div>
-              <div id="dashboard-output"></div>
+              <span class="count" id="output-summary">-</span>
+              <div class="collapsible-body" id="dashboard-output-body">
+                <div id="dashboard-output"></div>
+              </div>
             </div>
           </div>
           <div class="card mark-card" id="mark-card">
@@ -937,6 +966,7 @@
       signalUniverse: 'all_a',
       // "今日推荐" 当前的 tab：all / user / holding
       outputView: 'all',
+      outputCollapsed: true,
       // 用户自选 symbol 集合（从 /api/watchlist 拉取）
       userWatchlist: new Set(),
       // 表头排序：{ key, dir }  dir = 'asc' | 'desc' | null
@@ -992,6 +1022,13 @@
       item.addEventListener('click', () => drillToView(item.dataset.drill));
     });
     document.getElementById('refresh').addEventListener('click', refreshAndReload);
+    document.getElementById('dashboard-output-toggle')?.addEventListener('click', () => {
+      const card = document.getElementById('dashboard-output-card');
+      const btn = document.getElementById('dashboard-output-toggle');
+      if (!card || !btn) return;
+      state.outputCollapsed = card.classList.toggle('is-collapsed');
+      btn.textContent = state.outputCollapsed ? '展开规则输出' : '收起规则输出';
+    });
     let toastTimer = null;
     function showToast(msg, kind = 'success') {
       const el = document.getElementById('global-toast');
@@ -1389,6 +1426,7 @@
         }
       }
       document.getElementById('metric-win').textContent = fmtPct(state.dashboard.performance.win_rate);
+      renderDecisionStrip();
       renderDataStatus(state.dashboard.data_status);
       renderTopPicks(state.dashboard.signals_grouped || {});
       renderDashboardOutput(filterGroupedByView(state.dashboard.signals_grouped || {}));
@@ -1404,8 +1442,35 @@
       renderHoldingRisks(state.dashboard.holding_risks);
       renderPerformanceCurve(state.dashboard.performance_curve);
       renderNextSession(state.dashboard.next_session);
+      document.getElementById('dashboard-output-card')?.classList.toggle('is-collapsed', state.outputCollapsed);
+      const outputToggle = document.getElementById('dashboard-output-toggle');
+      if (outputToggle) outputToggle.textContent = state.outputCollapsed ? '展开规则输出' : '收起规则输出';
       // 首次 render 也设置 tab 数量徽章
       if (state.outputView) setOutputView(state.outputView);
+    }
+
+    function renderDecisionStrip() {
+      const textEl = document.getElementById('decision-text');
+      const metaEl = document.getElementById('decision-meta');
+      if (!textEl || !metaEl || !state.dashboard) return;
+      const grouped = state.dashboard.signals_grouped || {};
+      const buy = (grouped.buy || []).length;
+      const trial = (grouped.trial || []).length;
+      const exit = (grouped.exit_alert || []).length;
+      const stop = (grouped.stop || []).length;
+      const holdings = state.dashboard.holding_risks || [];
+      const danger = holdings.filter(h => h.severity === 'danger').length;
+      const warn = holdings.filter(h => h.severity === 'warn').length;
+      const market = state.dashboard.metrics?.market_filter || '-';
+      const planCount = state.dashboard.next_session?.candidate_count || 0;
+      const parts = [];
+      if (buy > 0) parts.push(`可买入 ${buy} 只`);
+      if (trial > 0) parts.push(`观察 ${trial} 只`);
+      if (exit + stop > 0) parts.push(`退出/止损 ${exit + stop} 只`);
+      if (parts.length === 0) parts.push('暂无新开仓动作');
+      const riskText = danger > 0 ? `持仓高风险 ${danger} 只` : warn > 0 ? `持仓需观察 ${warn} 只` : '持仓无明显止损风险';
+      textEl.textContent = `${parts.join('，')}；${riskText}。`;
+      metaEl.textContent = `大盘 ${market} · 计划 ${planCount} 只`;
     }
 
     // 按当前 outputView (all / user / holding / recommend) 过滤每个 action 分组里的行
@@ -1454,16 +1519,27 @@
 
     // 直接从 dashboard.benchmarks 取板块基准名称（不再支持切换）
     function currentSectorName() {
+      // 2026-06-07: 切板块后 dashboard 不会立即重拉,state.dashboard.benchmarks
+      // 可能是上次的值。优先从 selectedBenchmarks + benchmarkOptions 实时取
+      // (切板块时会同时更新 selectedBenchmarks.sector 和 benchmarkOptions)
+      const options = benchmarkOptions['sector'] || [];
+      const selectedSym = selectedBenchmarks.sector;
+      if (selectedSym) {
+        const card = options.find(c => c.symbol === selectedSym);
+        if (card) return card.name;
+      }
+      // fallback: 从 dashboard 里找(冷启首次)
       const sector = (state.dashboard?.benchmarks || []).find(b => b.key === 'sector');
       return sector ? sector.name : null;
     }
 
     function renderTopPicks(grouped) {
-      // 今日推荐：合并 buy/trial/exit_alert，按优先级 + 评分排序，取 top 5
+      // 今日推荐：合并 buy/trial/exit_alert，按优先级 + 评分排序，首页只取 top 3。
       // signals_grouped 的 key 是 service 端的小写化：buy / trial / exit_alert / stop / skip
       const list = document.getElementById('top-picks-list');
       const countEl = document.getElementById('top-picks-count');
       const hintEl = document.getElementById('top-picks-benchmark-hint');
+      const summaryEl = document.getElementById('top-picks-action-summary');
       if (!list) return;
       // 显示当前板块基准名称
       if (hintEl) {
@@ -1484,7 +1560,7 @@
         if (ap !== 0) return ap;
         return (b.score || 0) - (a.score || 0);
       });
-      const top = all.slice(0, 5);
+      const top = all.slice(0, 3);
 
       // 分类徽章：从 grouped 原始 key 直接读，不依赖 all 数组
       const g = grouped || {};
@@ -1497,6 +1573,17 @@
       const badgeText = badgeParts.length ? `今日: ${badgeParts.join(' · ')}` : '';
       const summaryText = `共 ${all.length} 条 / 取前 ${top.length}`;
       if (countEl) countEl.innerHTML = `${summaryText}${badgeText ? ` &nbsp;<span class="pick-badges">${badgeText}</span>` : ''}`;
+      if (summaryEl) {
+        const chips = [
+          ['buy', '买入', (g.buy || []).length],
+          ['trial', '观察', (g.trial || []).length],
+          ['exit', '退出', (g.exit_alert || []).length],
+          ['stop', '止损', (g.stop || []).length],
+        ].filter(([, , count]) => count > 0);
+        summaryEl.innerHTML = chips.length
+          ? chips.map(([cls, label, count]) => `<span class="action-chip ${cls}">${label} ${count}</span>`).join('')
+          : '<span class="action-chip">暂无动作</span>';
+      }
 
       if (top.length === 0) {
         list.innerHTML = '<p class="pick-empty">当前配置下暂无强信号。试试切换到"激进"预设，或在"配置"页检查 sector 过滤是否过严。</p>';
@@ -1512,12 +1599,11 @@
         <span>快捷操作</span>
       </div>`;
       const rows = top.map(row => {
-        // 多条 reasons：用 <br> 换行展示，最多 3 条
+        // 首页只保留一行原因摘要，完整原因放在 title，避免推荐卡挤占首屏。
         const reasons = (row.reasons || []).slice(0, 3);
-        const reasonHtml = reasons.length
-          ? reasons.map(r => escapeHtml(r)).join('<br>')
-          : escapeHtml(row.blocked_summary || row.reason_text || '—');
-        const reasonTitle = reasons.join(' | ');
+        const reasonText = reasons.length ? reasons.join('；') : (row.blocked_summary || row.reason_text || '—');
+        const reasonHtml = escapeHtml(reasonText);
+        const reasonTitle = reasons.length ? reasons.join(' | ') : reasonText;
         // 快捷买入按钮（仅 buy/trial 可买入；exit_alert/stop 显示卖出）
         const canBuy = row.action === 'buy' || row.action === 'trial';
         const canSell = row.action === 'exit_alert' || row.action === 'stop';

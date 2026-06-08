@@ -575,6 +575,11 @@ class AlphaPilotService:
         keyword: Optional[str] = None,
     ) -> list[dict]:
         instruments = self._signal_instruments(universe, keyword=keyword)
+        # 2026-06-07 决策: 不根据 sector 过滤 watchlist。
+        # 原因: watchlist 中同一 sector 可能只有 0-2 个标的,过滤后 top picks 经常变空;
+        # 切板块主要是"换参考门控"(sector_indicators),不一定要换标的池。
+        # hint 文字(currentSectorName)单独显示当前 sector 名称,用户能看到联动。
+        # 之前曾尝试过滤 → watchlist 没"半导体"就一片空白,体验差。
         if limit is None and universe != "watchlist" and not keyword:
             limit = DEFAULT_SIGNAL_LIMIT
         if limit is not None:
@@ -816,6 +821,8 @@ class AlphaPilotService:
 
     def _build_dashboard(self) -> dict:
         self.ensure_initialized()
+        # 2026-06-07: dashboard signals 不过滤 sector(全 watchlist 排序)
+        # top-picks 联动由 fetchTopPicksFast() 单独传 sector 实现(见前端)
         signals = self.signals()
         action_counts = {
             "NORMAL": sum(1 for item in signals if item["action"] == "NORMAL"),
