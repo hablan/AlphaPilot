@@ -194,6 +194,7 @@
       color: #b42318; font-size: 11px; font-weight: 700;
     }
     .benchmark-hint { color: #1d4ed8; font-weight: 600; font-size: 11px; margin-left: 6px; }
+    .benchmark-hint .hint-warn { color: #b45309; font-weight: 500; }
     .benchmark-hint.refreshing { animation: hintPulse 0.8s ease-out; }
     @keyframes hintPulse {
       0% { color: #1d4ed8; }
@@ -338,6 +339,7 @@
     .pick-badges { color: #1d4ed8; font-weight: 600; font-size: 12px; margin-left: 6px; }
     .pick-badges span { white-space: nowrap; }
     .benchmark-hint { color: #1d4ed8; font-weight: 600; font-size: 11px; margin-left: 6px; }
+    .benchmark-hint .hint-warn { color: #b45309; font-weight: 500; }
     .benchmark-hint.refreshing { animation: hintPulse 0.8s ease-out; }
     @keyframes hintPulse {
       0% { color: #1d4ed8; }
@@ -1286,6 +1288,20 @@
         api('/api/config')
       ]);
       state.dashboard = dashboard;
+      // 2026-06-07: 用当前默认 sector 的 dashboard signals_grouped 初始化 cache,
+      // 这样切 sector 触发 fallback 时有"上一次结果"可回退(避免冷启首次切就直接 0 条)
+      const sectorSym = selectedBenchmarks.sector || '';
+      _topPicksCache = {
+        signature: `m=${selectedBenchmarks.market || ''}|s=${selectedBenchmarks.style || ''}|c=${sectorSym}`,
+        signals: (dashboard.signals || []).filter(s => !s.action || s.action !== 'SKIP').length > 0
+          ? (dashboard.signals || [])
+          : (dashboard.signals_grouped?.buy || []).concat(
+              dashboard.signals_grouped?.trial || [],
+              dashboard.signals_grouped?.exit_alert || [],
+              dashboard.signals_grouped?.stop || []
+            ),
+        ts: Date.now(),
+      };
       applySignalResponse(signals);
       state.signalUniverses = universes.universes || [];
       state.journal = journal.marks || [];
@@ -1533,18 +1549,32 @@
       return sector ? sector.name : null;
     }
 
-    function renderTopPicks(grouped) {
+    function renderTopPicks(grouped, opts) {
       // 今日推荐：合并 buy/trial/exit_alert，按优先级 + 评分排序，首页只取 top 3。
       // signals_grouped 的 key 是 service 端的小写化：buy / trial / exit_alert / stop / skip
+      opts = opts || {};
+      // 2026-06-07: 兜底判断 fallback 模式。
+      // 之前依赖 opts.fallback 参数,但 render() 在 1433 调 renderTopPicks 不传 opts,
+      // 导致 fetchTopPicksFast 设的 fallback hint 被 render() 覆盖回纯文本。
+      // 改用 _topPicksFallback 模块变量自动判断。
+      const isFallback = opts.fallback || !!_topPicksFallback;
       const list = document.getElementById('top-picks-list');
       const countEl = document.getElementById('top-picks-count');
       const hintEl = document.getElementById('top-picks-benchmark-hint');
       const summaryEl = document.getElementById('top-picks-action-summary');
       if (!list) return;
-      // 显示当前板块基准名称
+      // 显示当前板块基准名称(2026-06-07: 加 fallback 提示 sector 弱时沿用旧结果)
       if (hintEl) {
         const sectorName = currentSectorName();
-        hintEl.textContent = sectorName ? `基于「${sectorName}」基准` : '';
+        if (sectorName) {
+          if (isFallback) {
+            hintEl.innerHTML = `基于「${sectorName}」基准 · <span class="hint-warn">sector 较弱,沿用上一次结果</span>`;
+          } else {
+            hintEl.textContent = `基于「${sectorName}」基准`;
+          }
+        } else {
+          hintEl.textContent = '';
+        }
       }
       const actionPriority = { buy: 0, trial: 1, exit_alert: 2, stop: 3, skip: 4 };
       const actionLabelShort = { buy: '买入', trial: '试探', exit_alert: '退出', stop: '止损', skip: '观望' };
@@ -2235,6 +2265,10 @@
     // 切基准时优先拉 top picks（watchlist + limit=10），避免等全量 5000+ 标的
     // 缓存 2 秒：相同 (market,style,sector) signature 内的二次请求直接复用
     let _topPicksCache = { signature: null, signals: null, ts: 0 };
+    // 2026-06-07: 当 sector 较弱导致新结果 0 条 buy/trial/exit_alert/stop 时,
+    // 沿用上一次 sector 的 grouped(让 top picks 继续显示),用此变量标记 fallback 模式
+    // renderTopPicks 读这个标志决定 hint 文字是否加 .hint-warn 提示
+    let _topPicksFallback = null;
     const TOP_PICKS_CACHE_TTL_MS = 2000;
 
     function topPicksSignature() {
@@ -2261,12 +2295,40 @@
         const resp = await api('/api/signals?' + params.toString());
         if (!Array.isArray(resp)) return;
         state.signals = resp;
-        // 写入缓存
+        // 2026-06-07: 新 sector 弱时 fallback 到上一个 sector 的结果
+        // 原因: sector_bars 影响 gate,弱 sector 会把所有标的全 SKIP,
+        // 导致切完 sector 后 top picks 突然 0 条,用户以为联动坏。
+        // 实际: 保留前一个 sector 的 grouped,hint 提示 sector 弱,top picks 继续显示
+        const newGrouped = groupSignals(resp);
+        const hasActionable = _hasActionable(newGrouped);
+        if (!hasActionable && _topPicksCache.signals && _topPicksCache.signals.length > 0) {
+          // sector 太弱,沿用上一组 grouped(但 cache 的 signature/sector 名要更新)
+          const prev = _topPicksCache.signals;
+          const prevGrouped = groupSignals(prev);
+          state.dashboard.signals_grouped = prevGrouped;
+          // 标记"当前 sector 弱,沿用 X ETF 结果"
+          _topPicksFallback = {
+            current_sector: selectedBenchmarks.sector,
+            fallback_sector: _topPicksCache.fallback_sector || selectedBenchmarks.sector,
+          };
+          _topPicksCache = { signature: sig, signals: resp, ts: Date.now() };
+          renderTopPicks(prevGrouped, { fallback: true });
+          return;
+        }
+        _topPicksFallback = null;
         _topPicksCache = { signature: sig, signals: resp, ts: Date.now() };
         applyTopPicksResult(resp);
       } catch (e) {
         console.error('[AlphaPilot] fetchTopPicksFast failed:', e);
       }
+    }
+
+    // 判断 grouped 是否至少有一个可操作 action (buy/trial/exit_alert/stop)
+    function _hasActionable(grouped) {
+      for (const action of ['buy', 'trial', 'exit_alert', 'stop']) {
+        if (grouped[action] && grouped[action].length > 0) return true;
+      }
+      return false;
     }
 
     // 把 signals 列表转换为 grouped 字典并刷新 top picks 视图
