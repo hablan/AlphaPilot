@@ -22,13 +22,15 @@
 
 ---
 
-## 分工建议（非强制）
+## 分工规则（2026-06-07 更新）
 
-| Agent | 建议负责 |
+| Agent | 主责 |
 |-------|----------|
-| **Claude** | Python 后端、策略/回测/数据层、API、测试 |
-| **CodeX** | Web UI（`web/index.html`、`prototypes/alphapilot-v2/`）、前端样式、可视化 |
-| 双方可接 | CLI 改进、文档、bug 修复（先认领先得） |
+| **Claude** | Python 后端、策略/回测/数据层、API、测试、launchd、文档同步 |
+| **CodeX** | Web UI（`alphapilot/web/index.html`、`prototypes/alphapilot-v2/`）、前端交互、布局、暗色模式、可视化、UI 回归验证 |
+| **交界面** | 跨前后端功能先由 Claude 定 API 契约和测试，再由 CodeX 接 UI |
+
+`alphapilot/web/index.html` 是高冲突文件。Claude 默认不要改；如必须临时补 UI，只做最小改动，并同步记录新增/修改的 class、id、data 属性和行为契约。双方不要在 `main` 上并行修改同一批文件，Claude 使用 `claude/xxx` 分支，CodeX 使用 `codex/xxx` 分支。
 
 ---
 
@@ -103,6 +105,32 @@
     - `.topbar` grid 列数为 6(`minmax(260px, 1fr) repeat(3, 160px) auto auto`),不要改回 5
     - `.modal-backdrop` / `.modal` 基础规则脆弱,改了会让板块弹窗和快捷键弹窗同时坏
 
+- [x] #arch [claude] 2026-06-07 后端数据同步 + 接口契约 + 性能 3 轮优化(commit `aaa32aa` / `b472c98` / `73c8d8a`)。归属:Claude 全责(纯后端 + 性能 + 测试),前端只动了字段重命名(5 处 `_user_pick` / `_blocked_short` → `is_user_pick` / `blocked_summary`)。详见 CHANGELOG.md。
+  - **P0 数据可信度(5 项)** commit `aaa32aa`:
+    - `bar_count` 口径 race 修复: dashboard 改用 `data_status_from(cache_status=...)` 注入式,`cache` 和 `data_status` 同源一次读取,避免 2-4 行差
+    - `fund_flow.status` 枚举化: ok / failed / missing / stale 4 状态,前端 if-else 链改读 1 个字段;新增 `_is_stale(date, days=3)` helper
+    - Signal 精简版: dashboard 用 17 字段版本(去 entry/exit/board),signals 页用全量 22 字段
+    - 下划线字段清理: `_user_pick` → `is_user_pick` / `_blocked_short` → `blocked_summary`
+    - quote() 盘中走 intraday snapshot: 新增 `service.set_provider()` 注入,server.py 启动时 `set_provider("akshare")`;非盘中或 provider 缺失时 fallback 日线,返回 `is_intraday` flag
+  - **P1 TTL 缓存 + 字段清理(4 项)** commit `b472c98`:
+    - 新增 `TTLCache` 类(模块级);dashboard 5s TTL,backtest 5 分钟,next_session 1 天(按日期 key)
+    - `dashboard()` 拆 `dashboard()` 走 cache + `_build_dashboard()` 真算;`backtest()` 拆 `backtest()` 走 cache + `_run_backtest()`
+    - 显式失效: `/api/refresh` 后 `invalidate()` 全部,`/api/mark` 后只 invalidate dashboard
+    - 删除 `metrics.market_state` / `metrics.style_state` 2 个字段(前端完全没用);`metrics.sector_state` 临时保留,前端已改为读 `benchmarks[].state`
+    - **性能实测**: dashboard 冷启 2.8s → 缓存命中 0.7ms(快 4000 倍)
+  - **P2 refresh 增强 + ETag(3 项)** commit `73c8d8a`:
+    - `bootstrap.initialize_market_cache` 新增 `as_of` / `new_bar_count` / `new_latest_trade_date`;前端 toast 显示"共 N 条 K 线"
+    - `/api/dashboard` 加 ETag(基于 md5(as_of | bar_count | latest | market_state | sector_state));客户端带 `If-None-Match` 命中就 304
+    - `_send_json` 加 `extra_headers` 参数(因 BaseHTTPRequestHandler 必须在 send_response 之后才发 header)
+    - 修复预存 `test_paper_equity_curve_after_paper_buy`: `paper_equity_curve` 把 first_date / end clamp 到 `latest_trade_date`,避免 sample provider 数据晚于 today 时 curve 返回空
+    - **性能实测**: ETag 命中 304,响应 0 字节
+  - **测试统计**: 274 个测试,全过(原 248 → 274,新增 26 个,覆盖所有 5+4+3 项)
+  - **前端组件约定(本轮新增,供 CodeX 同步):**
+    - `state.dashboard.signals_grouped.buy[0].is_user_pick` (bool) / `.blocked_summary` (str) 替代老字段
+    - `state.dashboard.fund_flow.status` 是枚举字符串,前端只需 `if (status === 'failed')` 一个分支
+    - `state.dashboard.metrics.sector_state` 临时保留,新代码请读 `state.dashboard.benchmarks[].state`
+    - `result.new_bar_count` 在 `/api/refresh` 返回里(数字,前端可格式化展示)
+
 - [x] #safety [claude] 2026-06-03 settings 误改保护：service.reset_strategy_config() + POST /api/config/reset 端点 + cache.delete_setting()。手抖/测试把 settings 改坏后一键恢复默认（关键场景：本次 P0 调试时 settings 被全改 false 就是缺这个保护）。新增 3 个测试。234 测试全绿。
 
 ### 阶段 4：架构重构
@@ -116,6 +144,11 @@
 ### 阶段 4 暂不做（已评估风险）
 - Service 拆分为 DataService/SignalService/BacktestService/PortfolioService：service.py 是所有调用核心，拆分涉及 API 兼容和线程模型，保留当前 facade
 - Handler 改完全 DI：目前 `set_service()` 方法已经支持实例级注入，类级 `service` 作为兜底
+
+### CodeX 前端专项（2026-06-07）
+- [x] #ux [codex]: 修复快捷键帮助弹窗重复 DOM id，避免 `getElementById()` 绑定到错误节点
+- [x] #ux [codex]: 审计并补齐暗色模式基础覆盖（状态条、配置页表单、benchmark dropdown、表格、弹窗标题）
+- [x] #docs [codex]: 固化 Claude / CodeX 协作边界到 `CLAUDE.md` 和本文件
 
 ---
 

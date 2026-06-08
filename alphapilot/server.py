@@ -112,6 +112,12 @@ class AlphaPilotHandler(BaseHTTPRequestHandler):
                 return
             self._send_json(dashboard, extra_headers={"etag": etag})
             return
+        if parsed.path == "/api/dashboard/summary":
+            # 2026-06-07: 精简版,只含首屏 banner/3 指标/data_status
+            # 不算 signals / sector_ranking / holding_risks / performance_curve
+            # 典型耗时 100-300ms(对比 /api/dashboard 冷启 2.8s)
+            self._send_json(self.service.dashboard_summary())
+            return
         if parsed.path == "/api/paper/equity-curve":
             self._send_json(self.service.paper_equity_curve())
             return

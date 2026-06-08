@@ -783,6 +783,37 @@ class AlphaPilotService:
             "dashboard", ttl_seconds=5.0, compute_fn=self._build_dashboard
         )
 
+    def dashboard_summary(self) -> dict:
+        """2026-06-07: 精简版 dashboard,只含首屏 banner/3 指标/data_status。
+
+        性能: 不调 signals() (1-2s)、不调 _holding_risks() (200ms)、不调 _sector_ranking() (300ms)
+        走轻量路径,只算 benchmarks + data_status + loss_streak。
+        典型耗时: 100-300ms(对比 dashboard 冷启 2.8s)。
+        """
+        return self._ttl_cache.get_or_compute(
+            "dashboard_summary", ttl_seconds=5.0, compute_fn=self._build_dashboard_summary
+        )
+
+    def _build_dashboard_summary(self) -> dict:
+        self.ensure_initialized()
+        cache_status = self.cache.lightweight_cache_status()
+        data_status = self.data_status_from(cache_status=cache_status)
+        benchmark_cards = self.benchmark_cards()
+        benchmark_cards_dict = {c["key"]: c["state"] for c in benchmark_cards}
+        return {
+            "as_of": date.today().isoformat(),
+            "benchmarks": benchmark_cards,
+            "cache": cache_status,
+            "data_status": data_status,
+            "metrics": {
+                "market_filter": "通过" if _is_pass_state(benchmark_cards_dict.get("market", "无数据")) else "过滤",
+                "sector_state": benchmark_cards_dict.get("sector", "无数据"),
+                "loss_streak": self._loss_streak(),
+                "action_counts": {},  # 精简版不计算 signals,需要时再走 /api/dashboard
+                "portfolio_pnl": self._portfolio_pnl_summary(),
+            },
+        }
+
     def _build_dashboard(self) -> dict:
         self.ensure_initialized()
         signals = self.signals()
@@ -1308,12 +1339,10 @@ class AlphaPilotService:
 def _group_signals_for_dashboard(signals: list[dict], user_picks: list[dict]) -> dict:
     """按 action + 来源分组今日信号,便于在"今日规则输出"区域分块展示。
 
-    2026-06-07 优化: 输出精简版字段(给 dashboard 用),不再带 entry_signal / exit_signal / board
-    以及下划线开头的内部字段(_user_pick / _blocked_short)直接作为普通字段输出,
-    改为生成两个对前端友好的替代字段:
-    - is_user_pick: bool (替代 _user_pick)
-    - blocked_summary: str (替代 _blocked_short,None 时为空串)
+    2026-06-07 重构: 字段白名单和具体生成逻辑下沉到 models.to_dashboard_signal,
+    本函数只剩"分组"职责。模型层是字段真源,改字段要改 models.py。
     """
+    from alphapilot.models import to_dashboard_signal
     user_codes = {p["symbol"] for p in user_picks}
     groups: dict[str, list[dict]] = {
         "buy": [],         # NORMAL 标记买入
@@ -1330,29 +1359,9 @@ def _group_signals_for_dashboard(signals: list[dict], user_picks: list[dict]) ->
             "EXIT_ALERT": "exit_alert",
             "STOP": "stop",
         }.get(action, "skip")
-        # 精简版: 只保留 dashboard 真正用到的字段
-        blocked = s.get("blocked_reasons") or []
-        groups[group_key].append({
-            "code": s.get("code"),
-            "name": s.get("name"),
-            "sector": s.get("sector"),
-            "score": s.get("score"),
-            "action": action,
-            "reasons": s.get("reasons") or [],
-            "blocked_reasons": blocked,
-            "blocked_summary": blocked[0] if blocked else "",
-            "reason_text": s.get("reason_text", ""),
-            "gate_state": s.get("gate_state", {}),
-            "last_price": s.get("last_price"),
-            "change_pct": s.get("change_pct"),
-            "pnl_pct": s.get("pnl_pct"),
-            "holding_shares": s.get("holding_shares", 0),
-            "cost_price": s.get("cost_price"),
-            "signal_type": s.get("signal_type"),
-            "signal_date": s.get("signal_date"),
-            "estimated_win_rate": s.get("estimated_win_rate"),
-            "is_user_pick": s.get("code") in user_codes,
-        })
+        groups[group_key].append(
+            to_dashboard_signal(s, is_user_pick=s.get("code") in user_codes)
+        )
     return groups
 
 

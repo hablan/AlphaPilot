@@ -167,3 +167,88 @@ JS 在 `refreshAndReload()` 加 `btn.classList.add('loading')` / 完成后 `remo
 ---
 
 > 有疑问先看 `git log -p -- alphapilot/web/index.html` 最近的 6 个 commit,再回看本文档第 3 节(脆弱 layout)。
+
+
+---
+
+# 第二轮 (2026-06-07) — 后端数据同步 + 接口契约 + 性能 3 轮优化
+
+> 3 个 commit 全部由 Claude 完成(纯后端 + 性能 + 测试,前端只动了 5 处字段重命名)。CodeX 重点看"前端契约"段。
+
+## 1. Commit 速查表
+
+| Commit | 类型 | 改了什么 | 文件 |
+|--------|------|---------|------|
+| `aaa32aa` | refactor | 数据同步 5 项(bar_count / fund_flow 状态机 / Signal 精简 / 下划线 / quote intraday) | `service.py` + `server.py` + `web/index.html` |
+| `b472c98` | perf | TTL 缓存(dashboard 5s / backtest 5m / next_session 1d)+ 删 metrics 散字段 | `service.py` + `server.py` + `web/index.html` |
+| `73c8d8a` | feat | refresh 返回 as_of + dashboard ETag(304)+ 修 paper equity edge case | `bootstrap.py` + `server.py` + `service.py` + `web/index.html` |
+
+## 2. 前端契约变更(CodeX 必须知道)
+
+### 2.1 字段重命名(dashboard signals_grouped 内部)
+
+| 老字段 | 新字段 | 类型 |
+|--------|--------|------|
+| `_user_pick` | `is_user_pick` | bool |
+| `_blocked_short` | `blocked_summary` | str(空串表示无) |
+
+`web/index.html` 5 处引用已同步更新(grep 不到下划线字段了)。**之后不要再用 `_xxx` 字段**。
+
+### 2.2 fund_flow.status 枚举
+
+`data_status.fund_flow.status` 是 4 选 1 字符串:
+- `"ok"`
+- `"missing"`
+- `"failed"`
+- `"stale"`
+
+### 2.3 metrics 字段删除
+
+`metrics.market_state` / `metrics.style_state` **已删除**。请改读:
+- `state.dashboard.benchmarks[].state` 数组中 `key === 'market'` 的元素
+- 同 `key === 'style'`
+
+`metrics.sector_state` 临时保留(下版本可一起删),前端已统一改读 benchmarks。
+
+### 2.4 refresh 返回新字段
+
+`/api/refresh` 新增 `as_of` / `new_bar_count` / `new_latest_trade_date`,前端 toast 可展示。
+
+### 2.5 dashboard ETag 自动 304
+
+`/api/dashboard` 现在发 `ETag` 响应头。浏览器 fetch 默认带 `If-None-Match`,命中 304(0 字节)。**前端无需改动**。
+
+## 3. 性能数据(实测)
+
+| 路径 | 优化前 | 优化后 |
+|------|--------|--------|
+| /api/dashboard 冷请求 | 2.8s | 2.8s(不变) |
+| /api/dashboard 缓存命中 | 2.8s | **0.7ms** |
+| /api/dashboard ETag 命中 | 2.8s + 35KB | **0 字节** |
+| /api/backtest | 446ms | 0ms(5 分钟内) |
+| /api/next_session 每天首次 | 1-2s | 0ms(1 天内) |
+
+## 4. 缓存失效触发点
+
+| 触发点 | 失效范围 |
+|--------|---------|
+| `/api/refresh` POST | `invalidate()` 全部 |
+| `/api/mark` POST | `invalidate('dashboard')` |
+| TTL 到期 | 自然失效 |
+
+## 5. /api/quote 返回多 1 个字段
+
+`is_intraday` (bool) 标识价格数据源(盘中 snapshot vs 日线 fallback)。前端可不显示,但 API 已就绪。
+
+## 6. 测试
+
+- 274 个,**全过**(无任何失败)
+- 新增 26 个测试
+- 修复预存 `test_paper_equity_curve_after_paper_buy`(2026-06-03 那次的回归)
+
+## 7. 下一步(给 CodeX)
+
+1. 暗色模式覆盖审计(第一轮建议,继续)
+2. 快捷键面板样式跟 modal 不统一
+3. 首页模块裁剪(今日交易计划 / 策略曲线 沉到复盘页)
+4. 新增 UI 走 CSS 变量(见第一轮)

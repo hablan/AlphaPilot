@@ -34,6 +34,15 @@ python3 -m alphapilot serve                     # 启动 Web UI
 - `claude/xxx` 或 `codex/xxx`：agent 工作分支
 - 完成阶段后通过 PR 合并
 
+## Claude / CodeX 协作边界
+
+- **Claude 主责**：Python 后端、策略逻辑、数据源、API、测试、launchd、文档同步。
+- **CodeX 主责**：Web UI（`alphapilot/web/index.html`、`prototypes/alphapilot-v2/`）、前端交互、布局、暗色模式、可视化和 UI 回归验证。
+- `alphapilot/web/index.html` 是高冲突文件。Claude 默认不要改；如后端功能必须临时补 UI，只做最小改动，并同步记录新增/修改的 class、id、data 属性和行为契约。
+- 跨前后端功能先由 Claude 完成 API 契约和测试，再由 CodeX 接 UI。
+- 开始任务前先在 `PROJECT_STATUS.md` 认领；完成后写 commit id。
+- Claude 使用 `claude/xxx` 分支，CodeX 使用 `codex/xxx` 分支；不要在 `main` 上并行修改同一批文件。
+
 ## Commit 格式
 
 ```
@@ -83,6 +92,11 @@ git diff
 # 还原所有未提交的修改
 git checkout .
 ```
+
+**安全回滚原则**：
+- 默认先执行 `git status --short` 和 `git diff`，确认没有其他 agent 或用户的未提交改动。
+- `git reset --hard`、`git checkout .`、`git push --force` 属于破坏性命令，除非用户明确要求，不要执行。
+- 如只需撤销自己刚改的单个文件，优先用补丁反向修改，避免覆盖他人改动。
 
 **禁止**：
 - 不要把 `.env`、`data/*.db`、API token commit 进去（已被 `.gitignore` 保护，但仍要警觉）
